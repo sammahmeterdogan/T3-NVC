@@ -14,7 +14,7 @@ export const EXAMPLES_DATA = [
     enabled: true,
     launchCommand: 'teleop',
     links: {
-      docs: 'https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Introducing-Turtlesim/Introducing-Turtlesim.html',
+      docs: 'https://emanual.robotis.com/docs/en/platform/turtlebot3/teleoperation/',
       tutorial: 'https://emanual.robotis.com/docs/en/platform/turtlebot3/basic_operation/#basic-operation',
       code: 'https://github.com/ROBOTIS-GIT/turtlebot3'
     }
@@ -72,7 +72,7 @@ export const EXAMPLES_DATA = [
     enabled: true,
     launchCommand: 'slam_cartographer',
     links: {
-      docs: 'https://google-cartographer-ros.readthedocs.io/en/latest/',
+      docs: 'https://navigation.ros.org/tutorials/docs/navigation2_with_cartographer.html',
       tutorial: 'https://emanual.robotis.com/docs/en/platform/turtlebot3/slam/#slam',
       code: 'https://github.com/cartographer-project/cartographer_ros'
     }
@@ -144,7 +144,7 @@ export const EXAMPLES_DATA = [
     enabled: false,
     launchCommand: null,
     links: {
-      docs: 'https://navigation.ros.org/configuration/packages/configuring-amcl.html',
+      docs: 'https://navigation.ros.org/tutorials/docs/amcl.html',
       tutorial: 'https://emanual.robotis.com/docs/en/platform/turtlebot3/navigation/#navigation',
       code: 'https://github.com/ros-navigation/navigation2/tree/humble/nav2_amcl'
     }
@@ -160,7 +160,7 @@ export const EXAMPLES_DATA = [
     enabled: false,
     launchCommand: null,
     links: {
-      docs: 'https://docs.ros.org/en/humble/Concepts/Intermediate/About-Tf2.html',
+      docs: 'https://docs.ros.org/en/humble/Tutorials/Intermediate/Tf2/Tf2-Main.html',
       tutorial: 'https://docs.ros.org/en/humble/Tutorials/Intermediate/Tf2/Introduction-To-Tf2.html',
       code: 'https://github.com/ros2/geometry2'
     }
@@ -174,7 +174,7 @@ export const EXAMPLES_DATA = [
     enabled: false,
     launchCommand: null,
     links: {
-      docs: 'https://github.com/RobotWebTools/rosbridge_suite/blob/ros2/ROSBRIDGE_PROTOCOL.md',
+      docs: 'https://wiki.ros.org/rosbridge_suite',
       tutorial: 'https://github.com/RobotWebTools/rosbridge_suite/blob/ros2/README.md',
       code: 'https://github.com/RobotWebTools/rosbridge_suite'
     }
