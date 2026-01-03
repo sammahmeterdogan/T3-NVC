@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -46,8 +44,29 @@ services:
     image: local/rosbridge:humble
     container_name: turtlebot3-rosbridge
     restart: unless-stopped
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
     ports:
       - "9090:9090"
+    networks:
+      - turtlebot-network
+
+  # RViz with noVNC
+  rviz-novnc:
+    build:
+      context: ./ros-stack
+      dockerfile: rviz.Dockerfile
+    container_name: turtlebot3-rviz-novnc
+    restart: unless-stopped
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
+      - DISPLAY=:0
+      - GEOMETRY=1600x900x24
+      - LIBGL_ALWAYS_SOFTWARE=1
+    depends_on:
+      - rosbridge
+    ports:
+      - "6080:6080"
     networks:
       - turtlebot-network
 

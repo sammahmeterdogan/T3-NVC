@@ -14,12 +14,13 @@ import {
 import { teleopAPI } from '../../services/api'
 import { rosClient } from '../../services/rosClient'
 
-const TeleopPad = ({ enabled = true, disabled = false, onMove }) => {
+const TeleopPad = ({ enabled = true, disabled = false }) => {
     const isEnabled = enabled && !disabled
     const [mode, setMode] = useState('keyboard') // 'keyboard' or 'joystick'
     const [velocity, setVelocity] = useState({ linear: 0, angular: 0 })
     const [isPressed, setIsPressed] = useState({})
     const intervalRef = useRef(null)
+    const [topic, setTopic] = useState(() => localStorage.getItem('teleop_topic') || '/cmd_vel')
 
     const MAX_LINEAR_VEL = 0.22 // m/s for TurtleBot3 Burger
     const MAX_ANGULAR_VEL = 2.84 // rad/s for TurtleBot3 Burger
@@ -35,18 +36,13 @@ const TeleopPad = ({ enabled = true, disabled = false, onMove }) => {
 
         // Use ROS client for direct publishing
         try {
-            rosClient.publishTopic('/cmd_vel', 'geometry_msgs/Twist', cmd)
+            rosClient.publishTopic(topic, 'geometry_msgs/Twist', cmd)
         } catch (error) {
             console.error('Failed to publish cmd_vel:', error)
         }
 
         // Also send via REST API for backend tracking
-        teleopAPI.sendTwist(cmd).catch(console.error)
-
-        // Call onMove callback if provided
-        if (onMove) {
-            onMove({ linear, angular })
-        }
+        teleopAPI.sendTwist({ linear, angular, topic }).catch(console.error)
 
         setVelocity({ linear, angular })
     }
@@ -163,6 +159,21 @@ const TeleopPad = ({ enabled = true, disabled = false, onMove }) => {
 
     return (
         <div className="space-y-4">
+            {/* Topic Selector */}
+            <div className="bg-gray-800 rounded-lg p-3">
+                <label className="block text-xs text-gray-400 mb-2">Publish Topic</label>
+                <div className="flex gap-2">
+                    <select
+                        value={topic}
+                        onChange={(e) => { setTopic(e.target.value); localStorage.setItem('teleop_topic', e.target.value) }}
+                        className="flex-1 bg-gray-900 text-white text-sm rounded-lg px-3 py-2 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    >
+                        <option value="/cmd_vel">/cmd_vel (TurtleBot3)</option>
+                        <option value="/turtle1/cmd_vel">/turtle1/cmd_vel (turtlesim)</option>
+                    </select>
+                </div>
+            </div>
+
             {/* Mode Selector */}
             <div className="flex gap-2">
                 <button

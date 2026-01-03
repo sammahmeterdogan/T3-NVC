@@ -7,9 +7,11 @@ public class RosProperties {
 
     private Docker docker = new Docker();
     private Bridge bridge = new Bridge();
+    private Visualization visualization = new Visualization();
 
     public Docker getDocker() { return docker; }
     public Bridge getBridge() { return bridge; }
+    public Visualization getVisualization() { return visualization; }
 
     public static class Docker {
         private String host;
@@ -35,5 +37,12 @@ public class RosProperties {
 
         public long getReconnectInterval() { return reconnectInterval; }
         public void setReconnectInterval(long reconnectInterval) { this.reconnectInterval = reconnectInterval; }
+    }
+
+    public static class Visualization {
+        private String rvizUrl;
+
+        public String getRvizUrl() { return rvizUrl; }
+        public void setRvizUrl(String rvizUrl) { this.rvizUrl = rvizUrl; }
     }
 }

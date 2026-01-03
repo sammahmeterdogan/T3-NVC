@@ -15,5 +15,5 @@ RUN mkdir -p $WS/src && cd $WS/src && \
     git clone -b humble https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git && \
     . /opt/ros/humble/setup.sh && cd $WS && colcon build --merge-install
 
-ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cppe
-# ^ intentionally wrong? (typo). Must be rmw_cyclonedds_cpp. Fix.
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ENV ROS_DOMAIN_ID=42

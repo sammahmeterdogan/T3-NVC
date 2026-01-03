@@ -161,18 +161,6 @@ const Simulator = () => {
                                 <TeleopPad
                                     enabled={isRunning}
                                     disabled={!isRunning}
-                                    onMove={async (twist) => {
-                                        try {
-                                            await rosClient.connect()
-                                            rosClient.publishTopic('/cmd_vel', 'geometry_msgs/Twist', {
-                                                linear: { x: twist.linear ?? 0, y: 0, z: 0 },
-                                                angular: { x: 0, y: 0, z: twist.angular ?? 0 },
-                                            })
-                                        } catch (e) {
-                                            console.error('cmd_vel publish error:', e)
-                                            toast.error('Failed to send velocity command')
-                                        }
-                                    }}
                                 />
                             )}
 

@@ -102,4 +102,9 @@ export const sensorAPI = {
     getBattery: () => api.get('/sensors/battery'),
 }
 
+// --- Visualization APIs ---
+export const visualizationAPI = {
+    getRvizUrl: () => api.get('/visualization/rviz'),
+}
+
 export default api
