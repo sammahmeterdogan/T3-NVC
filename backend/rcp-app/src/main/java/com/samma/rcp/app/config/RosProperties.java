@@ -41,8 +41,12 @@ public class RosProperties {
 
     public static class Visualization {
         private String rvizUrl;
+        private String turtlesimUrl;
 
         public String getRvizUrl() { return rvizUrl; }
         public void setRvizUrl(String rvizUrl) { this.rvizUrl = rvizUrl; }
+
+        public String getTurtlesimUrl() { return turtlesimUrl; }
+        public void setTurtlesimUrl(String turtlesimUrl) { this.turtlesimUrl = turtlesimUrl; }
     }
 }

@@ -4,7 +4,7 @@ import path from 'path'
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '')
-    const DEV_BACKEND_TARGET = env.VITE_DEV_BACKEND_TARGET || 'http://localhost:8080'
+    const DEV_BACKEND_TARGET = env.VITE_DEV_BACKEND_TARGET || 'http://localhost:8082'
 
     return {
         plugins: [react()],
@@ -19,18 +19,18 @@ export default defineConfig(({ mode }) => {
             strictPort: true,
             proxy: {
                 '/api': {
-                    target: DEV_BACKEND_TARGET,
+                    target: 'http://localhost:8082',
                     changeOrigin: true,
                     secure: false,
                 },
                 '/ws': {
-                    target: DEV_BACKEND_TARGET,
+                    target: 'http://localhost:8082',
                     changeOrigin: true,
                     ws: true,
                     secure: false,
                 },
                 '/rosbridge': {
-                    target: 'ws://localhost:9090',
+                    target: 'ws://localhost:9091',
                     changeOrigin: true,
                     ws: true,
                     secure: false,

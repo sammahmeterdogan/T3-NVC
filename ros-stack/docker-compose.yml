@@ -10,7 +10,7 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
       - ROS_BRIDGE_PORT=${ROS_BRIDGE_PORT:-9090}
     ports:
-      - "${ROS_BRIDGE_PORT:-9090}:9090"
+      - "${ROSBRIDGE_HOST_PORT:-9091}:9090"
     networks: [rosnet]
 
   tb3-sim:
