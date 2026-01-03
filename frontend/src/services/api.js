@@ -115,4 +115,11 @@ export const turtlesimAPI = {
     sendCmdVel: (data) => api.post('/turtlesim/cmd_vel', data),
 }
 
+// --- Health APIs ---
+export const healthAPI = {
+    getSummary: () => api.get('/health/summary'),
+    clearError: () => api.post('/health/clear-error'),
+    ping: () => api.get('/health/ping'),
+}
+
 export default api
