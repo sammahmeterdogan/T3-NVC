@@ -22,10 +22,13 @@ import {
     Grid3x3,
     BookOpen,
     Video,
-    Code
+    Code,
+    Eye,
+    Bug
 } from 'lucide-react'
 import PageContainer from '../components/layout/PageContainer'
 import { examplesAPI, simulationAPI } from '../services/api'
+import { EXAMPLES_DATA } from '../data/examples'
 
 const getIconForCategory = (category) => {
     const icons = {
@@ -35,6 +38,8 @@ const getIconForCategory = (category) => {
         AUTONOMOUS: Shield,
         VISION: Users,
         CONTROL: Target,
+        PERCEPTION: Eye,
+        DEBUG: Bug,
         ADVANCED: Grid3x3
     }
     return icons[category] || Cpu
@@ -55,9 +60,18 @@ const Examples = () => {
     const [selectedCategory, setSelectedCategory] = useState('ALL')
     const [selectedDifficulty, setSelectedDifficulty] = useState('ALL')
 
-    const { data: examples, isLoading } = useQuery({
+    // Use local EXAMPLES_DATA as fallback, merge with API data if available
+    const { data: apiExamples, isLoading } = useQuery({
         queryKey: ['examples'],
-        queryFn: examplesAPI.list,
+        queryFn: async () => {
+            try {
+                return await examplesAPI.list()
+            } catch (error) {
+                console.warn('API examples not available, using local data')
+                return EXAMPLES_DATA
+            }
+        },
+        initialData: EXAMPLES_DATA
     })
 
     const launchExample = useMutation({
@@ -71,8 +85,10 @@ const Examples = () => {
         }
     })
 
-    const categories = ['ALL', 'BASIC', 'MAPPING', 'NAVIGATION', 'AUTONOMOUS', 'VISION', 'CONTROL', 'ADVANCED']
+    const categories = ['ALL', 'BASIC', 'MAPPING', 'NAVIGATION', 'AUTONOMOUS', 'PERCEPTION', 'DEBUG', 'CONTROL', 'ADVANCED']
     const difficulties = ['ALL', 'EASY', 'MEDIUM', 'HARD']
+
+    const examples = apiExamples || EXAMPLES_DATA
 
     const filteredExamples = examples?.filter(example => {
         const matchesSearch = example.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -186,15 +202,22 @@ const Examples = () => {
 
                                     {/* Action Buttons */}
                                     <div className="flex gap-2">
-                                        <motion.button
-                                            whileTap={{ scale: 0.95 }}
-                                            onClick={() => launchExample.mutate(example.id)}
-                                            disabled={!example.enabled || launchExample.isPending}
-                                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors"
-                                        >
-                                            <Play className="w-4 h-4" />
-                                            Launch
-                                        </motion.button>
+                                        <div className="relative flex-1 group">
+                                            <motion.button
+                                                whileTap={{ scale: example.enabled ? 0.95 : 1 }}
+                                                onClick={() => example.enabled && launchExample.mutate(example.id)}
+                                                disabled={!example.enabled || launchExample.isPending}
+                                                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors"
+                                            >
+                                                <Play className="w-4 h-4" />
+                                                Launch
+                                            </motion.button>
+                                            {!example.enabled && (
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-gray-300 text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                                    Coming soon
+                                                </div>
+                                            )}
+                                        </div>
 
                                         <motion.button
                                             whileTap={{ scale: 0.95 }}
@@ -208,20 +231,48 @@ const Examples = () => {
 
                                 {/* Card Footer - Quick Actions */}
                                 <div className="px-4 pb-4 flex items-center gap-2">
-                                    <button className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors">
-                                        <BookOpen className="w-3 h-3" />
-                                        Docs
-                                    </button>
-                                    <span className="text-gray-700">•</span>
-                                    <button className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors">
-                                        <Video className="w-3 h-3" />
-                                        Tutorial
-                                    </button>
-                                    <span className="text-gray-700">•</span>
-                                    <button className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors">
-                                        <Code className="w-3 h-3" />
-                                        Code
-                                    </button>
+                                    {example.links?.docs && (
+                                        <a
+                                            href={example.links.docs}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-400 transition-colors"
+                                            title="Official Documentation"
+                                        >
+                                            <BookOpen className="w-3 h-3" />
+                                            Docs
+                                        </a>
+                                    )}
+                                    {example.links?.docs && example.links?.tutorial && (
+                                        <span className="text-gray-700">•</span>
+                                    )}
+                                    {example.links?.tutorial && (
+                                        <a
+                                            href={example.links.tutorial}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-400 transition-colors"
+                                            title="Tutorial"
+                                        >
+                                            <Video className="w-3 h-3" />
+                                            Tutorial
+                                        </a>
+                                    )}
+                                    {example.links?.tutorial && example.links?.code && (
+                                        <span className="text-gray-700">•</span>
+                                    )}
+                                    {example.links?.code && (
+                                        <a
+                                            href={example.links.code}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-400 transition-colors"
+                                            title="Source Code"
+                                        >
+                                            <Code className="w-3 h-3" />
+                                            Code
+                                        </a>
+                                    )}
                                 </div>
                             </motion.div>
                         )
