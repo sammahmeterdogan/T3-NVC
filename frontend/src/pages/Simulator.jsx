@@ -25,9 +25,17 @@ const SimulatorContent = () => {
     const [selectedScenario, setSelectedScenario] = useState('TELEOP')
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [activeTab, setActiveTab] = useState('control')
+    const [controlMode, setControlMode] = useState(() => {
+        return localStorage.getItem('simulator_control_mode') || 'basic'
+    })
     const [connectionStatus, setConnectionStatus] = useState({
         stomp: 'disconnected',
         ros: 'disconnected'
+    })
+    const [startupPipeline, setStartupPipeline] = useState({
+        stage: 'idle', // idle | connecting | subscribing | ready | error
+        message: '',
+        progress: 0 // 0-100
     })
     const [telemetryData, setTelemetryData] = useState({
         pose: { x: 0, y: 0, theta: 0 },
@@ -39,6 +47,11 @@ const SimulatorContent = () => {
     const simulatorRef = useRef(null)
     const subscriptionsRef = useRef([])
     const mountedRef = useRef(false)
+
+    // Persist control mode preference
+    useEffect(() => {
+        localStorage.setItem('simulator_control_mode', controlMode)
+    }, [controlMode])
 
     // Connection management effect - runs once on mount
     useEffect(() => {
@@ -54,34 +67,75 @@ const SimulatorContent = () => {
 
         const initConnections = async () => {
             try {
-                // Connect STOMP first
+                // Stage 1: Connecting to STOMP
+                setStartupPipeline({ stage: 'connecting', message: 'Connecting to backend WebSocket...', progress: 20 })
                 console.log('[Simulator] Connecting to STOMP...')
+                
                 await wsService.connect(wsUrl)
+                
                 if (!cancelled) {
                     setConnectionStatus(prev => ({ ...prev, stomp: 'connected' }))
-                    console.log('[Simulator] STOMP connected, setting up subscriptions...')
-                    setupStompSubscriptions()
+                    setStartupPipeline({ stage: 'connecting', message: 'Backend WebSocket connected', progress: 40 })
+                    console.log('[Simulator] STOMP connected')
                 }
             } catch (err) {
                 console.error('[Simulator] STOMP connection failed:', err)
                 if (!cancelled) {
                     setConnectionStatus(prev => ({ ...prev, stomp: 'error' }))
+                    setStartupPipeline({ 
+                        stage: 'error', 
+                        message: 'Backend WebSocket failed: ' + err.message, 
+                        progress: 0 
+                    })
                 }
+                return // Stop pipeline on STOMP failure
             }
 
             try {
-                // Connect ROS Bridge
+                // Stage 2: Connecting to ROS Bridge
+                setStartupPipeline({ stage: 'connecting', message: 'Connecting to ROS Bridge...', progress: 50 })
                 console.log('[Simulator] Connecting to ROS Bridge...')
+                
                 await rosClient.connect(rosUrl)
+                
                 if (!cancelled) {
                     setConnectionStatus(prev => ({ ...prev, ros: 'connected' }))
+                    setStartupPipeline({ stage: 'connecting', message: 'ROS Bridge connected', progress: 70 })
                     console.log('[Simulator] ROS Bridge connected')
                 }
             } catch (err) {
                 console.error('[Simulator] ROS Bridge connection failed:', err)
                 if (!cancelled) {
                     setConnectionStatus(prev => ({ ...prev, ros: 'error' }))
+                    setStartupPipeline({ 
+                        stage: 'error', 
+                        message: 'ROS Bridge connection failed: ' + err.message, 
+                        progress: 50 
+                    })
                 }
+                return // Stop pipeline on ROS failure (STOMP still works)
+            }
+
+            // Stage 3: Setting up subscriptions
+            if (!cancelled && wsService.isConnected()) {
+                setStartupPipeline({ stage: 'subscribing', message: 'Setting up data streams...', progress: 85 })
+                console.log('[Simulator] Setting up subscriptions...')
+                setupStompSubscriptions()
+            }
+
+            // Stage 4: Ready
+            if (!cancelled) {
+                setStartupPipeline({ stage: 'ready', message: 'Simulator ready', progress: 100 })
+                console.log('[Simulator] Startup pipeline complete')
+                
+                // Clear ready message after 2 seconds
+                setTimeout(() => {
+                    if (mountedRef.current) {
+                        setStartupPipeline(prev => 
+                            prev.stage === 'ready' ? { ...prev, message: '' } : prev
+                        )
+                    }
+                }, 2000)
             }
         }
 
@@ -258,16 +312,34 @@ const SimulatorContent = () => {
 
     const isRunning = status?.status === 'RUNNING'
 
-    // Connection status indicator
+    // Connection status indicator with startup pipeline
     const connectionIndicator = (
-        <div className="flex items-center gap-2 text-xs">
-            <div className={`w-2 h-2 rounded-full ${connectionStatus.stomp === 'connected' ? 'bg-green-500' : connectionStatus.stomp === 'error' ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'}`} title="STOMP" />
-            <div className={`w-2 h-2 rounded-full ${connectionStatus.ros === 'connected' ? 'bg-green-500' : connectionStatus.ros === 'error' ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'}`} title="ROS" />
-            <span className="text-gray-400">
-                {connectionStatus.stomp === 'connected' && connectionStatus.ros === 'connected' ? 'Connected' : 
-                 connectionStatus.stomp === 'error' || connectionStatus.ros === 'error' ? 'Connection error' : 
-                 'Connecting...'}
-            </span>
+        <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-xs">
+                <div className={`w-2 h-2 rounded-full ${connectionStatus.stomp === 'connected' ? 'bg-green-500' : connectionStatus.stomp === 'error' ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'}`} title="STOMP" />
+                <div className={`w-2 h-2 rounded-full ${connectionStatus.ros === 'connected' ? 'bg-green-500' : connectionStatus.ros === 'error' ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'}`} title="ROS" />
+                <span className="text-gray-400">
+                    {startupPipeline.stage === 'ready' ? 'Ready' :
+                     startupPipeline.stage === 'error' ? 'Error' :
+                     startupPipeline.stage === 'connecting' || startupPipeline.stage === 'subscribing' ? 'Connecting' :
+                     'Idle'}
+                </span>
+            </div>
+            {startupPipeline.message && startupPipeline.stage !== 'idle' && (
+                <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-xs max-w-xs truncate">
+                        {startupPipeline.message}
+                    </span>
+                    {startupPipeline.stage === 'connecting' || startupPipeline.stage === 'subscribing' ? (
+                        <div className="w-16 h-1 bg-gray-700 rounded-full overflow-hidden">
+                            <div 
+                                className="h-full bg-blue-500 transition-all duration-300"
+                                style={{ width: `${startupPipeline.progress}%` }}
+                            />
+                        </div>
+                    ) : null}
+                </div>
+            )}
         </div>
     )
 
@@ -333,10 +405,23 @@ const SimulatorContent = () => {
                         </div>
                         <div className="p-4">
                             {activeTab === 'control' && (
-                                <TeleopPad
-                                    enabled={isRunning && connectionStatus.ros === 'connected'}
-                                    disabled={!isRunning || connectionStatus.ros !== 'connected'}
-                                />
+                                <>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span className="text-gray-400 text-xs font-medium">Control Mode</span>
+                                        <button
+                                            onClick={() => setControlMode(prev => prev === 'basic' ? 'advanced' : 'basic')}
+                                            className="text-xs text-gray-500 hover:text-primary-400 transition-colors flex items-center gap-1"
+                                        >
+                                            {controlMode === 'basic' ? 'Advanced' : 'Basic'}
+                                            <Settings className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                    <TeleopPad
+                                        enabled={isRunning && connectionStatus.ros === 'connected'}
+                                        disabled={!isRunning || connectionStatus.ros !== 'connected'}
+                                        controlMode={controlMode}
+                                    />
+                                </>
                             )}
 
                             {activeTab === 'navigation' && (
