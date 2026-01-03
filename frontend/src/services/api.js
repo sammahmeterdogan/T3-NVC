@@ -1,7 +1,8 @@
 // src/services/api.js
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+// Varsayılan olarak backend host portu 8082'ye (docker-compose varsayılanı) işaret et
+const API_BASE_URL = 'http://localhost:8082/api'
 
 // --- Axios instance ---
 export const api = axios.create({
@@ -105,6 +106,13 @@ export const sensorAPI = {
 // --- Visualization APIs ---
 export const visualizationAPI = {
     getRvizUrl: () => api.get('/visualization/rviz'),
+    getTurtlesimUrl: () => api.get('/visualization/turtlesim'),
+}
+
+// --- Turtlesim APIs ---
+export const turtlesimAPI = {
+    getStatus: () => api.get('/turtlesim/status'),
+    sendCmdVel: (data) => api.post('/turtlesim/cmd_vel', data),
 }
 
 export default api

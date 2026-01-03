@@ -47,9 +47,9 @@ const Switch = ({ checked, onChange }) => (
 )
 
 const DEFAULTS = {
-    rosbridge_url: 'ws://localhost:9090',
-    ws_url: 'http://localhost:8080/ws/robot',
-    video_stream_url: 'http://localhost:8080',
+    rosbridge_url: 'ws://localhost:9091',
+    ws_url: 'http://localhost:8082/ws/robot',
+    video_stream_url: 'http://localhost:8082',
     auto_reconnect: true,
     reconnect_interval: 5000,
     default_model: 'burger',

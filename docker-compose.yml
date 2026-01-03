@@ -28,8 +28,11 @@ services:
       - DB_USERNAME=samma
       - DB_PASSWORD=1234
       - ROSBRIDGE_URL=ws://rosbridge:9090
+      - DEBUG_LOG_DIR=/app
+    volumes:
+      - ./.cursor:/app/.cursor
     ports:
-      - "8080:8080"
+      - "${BACKEND_HOST_PORT:-8082}:8080"
     depends_on:
       - postgres
       - rosbridge
@@ -47,9 +50,11 @@ services:
     environment:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
     ports:
-      - "9090:9090"
+      - "${ROSBRIDGE_HOST_PORT:-9091}:9090"
     networks:
-      - turtlebot-network
+      turtlebot-network:
+        aliases:
+          - rosbridge
 
   # RViz with noVNC
   rviz-novnc:
@@ -66,7 +71,33 @@ services:
     depends_on:
       - rosbridge
     ports:
-      - "6080:6080"
+      - "${RVIZ_NOVNC_HOST_PORT:-6082}:6080"
+    networks:
+      - turtlebot-network
+
+  # Turtlesim noVNC (live view + turtlesim node)
+  turtlesim-novnc:
+    build:
+      context: ./ros-stack
+      dockerfile: turtlesim-novnc.Dockerfile
+    container_name: turtlebot3-turtlesim-novnc
+    restart: unless-stopped
+    environment:
+      - DISPLAY=:1
+      - GEOMETRY=800x800x24
+      - VNC_PORT=5901
+      - NOVNC_PORT=6081
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
+    depends_on:
+      - rosbridge
+    healthcheck:
+      test: ["CMD-SHELL", "source /opt/ros/humble/setup.bash && ros2 topic list | grep -q /turtle1/cmd_vel || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    ports:
+      - "6081:6081"
     networks:
       - turtlebot-network
 

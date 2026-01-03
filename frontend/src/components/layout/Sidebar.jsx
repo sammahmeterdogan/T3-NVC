@@ -12,6 +12,7 @@ import {
     Bot,
     Zap,
     Activity,
+    Turtle,
 } from 'lucide-react'
 import { rosClient } from '../../services/rosClient'
 import { wsService } from '../../services/ws'
@@ -52,6 +53,13 @@ const menuItems = [
         icon: Settings,
         color: 'text-gray-400',
         activeColor: 'text-gray-400',
+    },
+    {
+        path: '/turtlesim',
+        name: 'Turtlesim',
+        icon: Turtle,
+        color: 'text-yellow-400',
+        activeColor: 'text-yellow-400',
     },
 ]
 

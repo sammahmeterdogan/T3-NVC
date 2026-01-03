@@ -30,13 +30,17 @@ ros:
     compose-file: ${COMPOSE_FILE:/home/samma/Desktop/turtlebot3-web-simulator/ros-stack/docker-compose.yml}
     network: ${DOCKER_NETWORK:turtlebot-network}
   bridge:
-    url: ${ROSBRIDGE_URL:ws://localhost:9090}
+    url: ${ROSBRIDGE_URL:ws://localhost:9091}
     reconnect-interval: 5000
 
   video:
     stream-url: ${VIDEO_STREAM_URL:http://localhost:8080}
   visualization:
-    rviz-url: ${RVIZ_URL:http://localhost:6080/vnc.html}
+    rviz-url: ${RVIZ_URL:http://localhost:6082/vnc.html}
+    turtlesim-url: ${TURTLESIM_VNC_URL:http://localhost:6081/vnc.html?autoconnect=1&resize=scale}
+  turtlesim:
+    topic: ${TURTLESIM_TOPIC:/turtle1/cmd_vel}
+    status-check-topic: ${TURTLESIM_STATUS_TOPIC:/turtle1/pose}
   simulation:
     default-model: ${DEFAULT_MODEL:burger}
     startup-timeout: 30000
