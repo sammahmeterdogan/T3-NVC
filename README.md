@@ -538,9 +538,47 @@ docker compose -f ros-stack/docker-compose.yml up -d
 # - IntelliJ IDEA: Spring Boot, JavaScript/TypeScript
 ```
 
+## ✨ Yeni Özellikler
+
+### Turtlesim Web Kontrolü (v1.1.0)
+- **Web Tabanlı Turtle Kontrolü**: Tarayıcı üzerinden turtlesim kontrolü
+- **Gerçek Zamanlı VNC Görüntüsü**: noVNC ile canlı turtle görüntüleme
+- **Joystick Kontrolü**: Sanal joystick ile turtle hareketi
+- **ROS Bridge Entegrasyonu**: Tam WebSocket desteği
+
+#### Turtlesim Kullanımı
+```bash
+# 1. Turtlesim servisini başlatın
+docker-compose up -d turtlesim-novnc
+
+# 2. Frontend'te Turtlesim sayfasına gidin
+# http://localhost:5173/turtlesim
+
+# 3. VNC görüntüsünü görüntüleyin
+# http://localhost:6081/vnc.html?autoconnect=1&resize=scale
+
+# 4. Joystick veya ok tuşları ile turtle'ı kontrol edin
+```
+
 ## 🔧 Sorun Giderme
 
 ### Sık Karşılaşılan Sorunlar
+
+#### 0. ROS Bridge Bağlantı Hatası (500 Internal Server Error)
+```bash
+# Hata: "WebsocketNotConnectedException" veya cmd_vel 500 hatası
+# Çözüm: docker-compose.yml'de rosbridge network alias'ını kontrol edin
+
+# Rosbridge servisinde network yapılandırması şu şekilde olmalı:
+networks:
+  turtlebot-network:
+    aliases:
+      - rosbridge
+
+# Servisleri yeniden başlatın
+docker-compose down rosbridge backend
+docker-compose up -d rosbridge backend
+```
 
 #### 1. Node.js Versiyon Hatası
 ```bash
