@@ -55,8 +55,17 @@ function connect(url) {
     if (destroyed) return Promise.reject(new Error('ROS client destroyed'))
 
     const wsUrl = toWsUrl(url)
-    if (ros && ros.socket && ros.socket.readyState === 1) return Promise.resolve(ros)
-    if (connectPromise) return connectPromise
+    console.log(`[ROS] Attempting to connect to ${wsUrl}`)
+    
+    if (ros && ros.socket && ros.socket.readyState === 1) {
+        console.log('[ROS] Already connected')
+        return Promise.resolve(ros)
+    }
+    
+    if (connectPromise) {
+        console.log('[ROS] Connection in progress, reusing promise')
+        return connectPromise
+    }
 
     setState('CONNECTING')
     ros = new ROSLIB.Ros({ url: wsUrl })
@@ -65,25 +74,41 @@ function connect(url) {
         const onOpen = () => {
             cleanupConnHandlers(ros, handlers)
             reconnectAttempts = 0
+            console.log(`[ROS] CONNECTED to ${wsUrl}`)
             setState('CONNECTED')
             connectPromise = null
             resolve(ros)
         }
         const onError = (e) => {
             cleanupConnHandlers(ros, handlers)
+            console.error('[ROS] Connection ERROR:', e)
             setState('DISCONNECTED')
             connectPromise = null
             reject(e)
         }
         const onClose = () => {
             cleanupConnHandlers(ros, handlers)
+            console.warn('[ROS] Connection closed')
             setState('DISCONNECTED')
             connectPromise = null
-            if (destroyed) return
-            if (reconnectAttempts >= maxReconnectAttempts) return
+            if (destroyed) {
+                console.log('[ROS] Client destroyed, not reconnecting')
+                return
+            }
+            if (reconnectAttempts >= maxReconnectAttempts) {
+                console.error('[ROS] Max reconnect attempts reached')
+                return
+            }
             reconnectAttempts += 1
-            const delay = 2000 * Math.pow(2, reconnectAttempts - 1)
-            reconnectTimer = setTimeout(() => { if (!destroyed) connect(wsUrl).catch(() => {}) }, delay)
+            const baseDelay = 500 * Math.pow(2, reconnectAttempts - 1)
+            const maxDelay = 8000
+            const delay = Math.min(baseDelay, maxDelay) + Math.random() * 200
+            console.log(`[ROS] RETRY ${reconnectAttempts}/${maxReconnectAttempts} in ${Math.round(delay)}ms`)
+            reconnectTimer = setTimeout(() => { 
+                if (!destroyed) {
+                    connect(wsUrl).catch(() => {}) 
+                }
+            }, delay)
         }
 
         const handlers = [
