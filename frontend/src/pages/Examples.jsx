@@ -24,7 +24,10 @@ import {
     Video,
     Code,
     Eye,
-    Bug
+    Bug,
+    Loader,
+    CheckCircle,
+    XCircle,
 } from 'lucide-react'
 import PageContainer from '../components/layout/PageContainer'
 import { examplesAPI, simulationAPI } from '../services/api'
@@ -59,6 +62,7 @@ const Examples = () => {
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedCategory, setSelectedCategory] = useState('ALL')
     const [selectedDifficulty, setSelectedDifficulty] = useState('ALL')
+    const [launchStates, setLaunchStates] = useState({}) // Track launch state per example
 
     // Use local EXAMPLES_DATA as fallback, merge with API data if available
     const { data: apiExamples, isLoading } = useQuery({
@@ -75,13 +79,30 @@ const Examples = () => {
     })
 
     const launchExample = useMutation({
-        mutationFn: (exampleId) => examplesAPI.launch(exampleId),
-        onSuccess: () => {
-            toast.success('Example launched successfully')
-            navigate('/simulator')
+        mutationFn: async (exampleId) => {
+            setLaunchStates(prev => ({ ...prev, [exampleId]: 'launching' }))
+            return await examplesAPI.launch(exampleId)
         },
-        onError: () => {
+        onSuccess: (data, exampleId) => {
+            setLaunchStates(prev => ({ ...prev, [exampleId]: 'success' }))
+            toast.success('Example launched successfully')
+            
+            // Clear success state after 2 seconds
+            setTimeout(() => {
+                setLaunchStates(prev => ({ ...prev, [exampleId]: null }))
+            }, 2000)
+            
+            // Do NOT auto-navigate - user stays to launch more examples or see result
+        },
+        onError: (error, exampleId) => {
+            const message = error.response?.data?.message || error.message || 'Launch failed'
+            setLaunchStates(prev => ({ ...prev, [exampleId]: { state: 'error', message } }))
             toast.error('Failed to launch example')
+            
+            // Clear error state after 5 seconds
+            setTimeout(() => {
+                setLaunchStates(prev => ({ ...prev, [exampleId]: null }))
+            }, 5000)
         }
     })
 
@@ -201,78 +222,117 @@ const Examples = () => {
                                     </div>
 
                                     {/* Action Buttons */}
-                                    <div className="flex gap-2">
-                                        <div className="relative flex-1 group">
-                                            <motion.button
-                                                whileTap={{ scale: example.enabled ? 0.95 : 1 }}
-                                                onClick={() => example.enabled && launchExample.mutate(example.id)}
-                                                disabled={!example.enabled || launchExample.isPending}
-                                                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors"
-                                            >
-                                                <Play className="w-4 h-4" />
-                                                Launch
-                                            </motion.button>
-                                            {!example.enabled && (
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-gray-300 text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                                    Coming soon
-                                                </div>
-                                            )}
-                                        </div>
+                                    <div className="space-y-2">
+                                        <div className="flex gap-2">
+                                            <div className="relative flex-1 group">
+                                                <motion.button
+                                                    whileTap={{ scale: example.enabled && !launchStates[example.id] ? 0.95 : 1 }}
+                                                    onClick={() => example.enabled && !launchStates[example.id] && launchExample.mutate(example.id)}
+                                                    disabled={!example.enabled || launchStates[example.id] === 'launching'}
+                                                    className={`w-full flex items-center justify-center gap-2 px-3 py-2 text-white text-sm rounded-lg transition-colors ${
+                                                        launchStates[example.id] === 'launching' ? 'bg-blue-600' :
+                                                        launchStates[example.id] === 'success' ? 'bg-green-600' :
+                                                        launchStates[example.id]?.state === 'error' ? 'bg-red-600' :
+                                                        'bg-primary-600 hover:bg-primary-700 disabled:bg-gray-700 disabled:cursor-not-allowed'
+                                                    }`}
+                                                >
+                                                    {launchStates[example.id] === 'launching' ? (
+                                                        <>
+                                                            <Loader className="w-4 h-4 animate-spin" />
+                                                            Launching...
+                                                        </>
+                                                    ) : launchStates[example.id] === 'success' ? (
+                                                        <>
+                                                            <CheckCircle className="w-4 h-4" />
+                                                            Launched
+                                                        </>
+                                                    ) : launchStates[example.id]?.state === 'error' ? (
+                                                        <>
+                                                            <XCircle className="w-4 h-4" />
+                                                            Failed
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Play className="w-4 h-4" />
+                                                            Launch
+                                                        </>
+                                                    )}
+                                                </motion.button>
+                                                {!example.enabled && (
+                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-gray-300 text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                                        Coming soon
+                                                    </div>
+                                                )}
+                                            </div>
 
-                                        <motion.button
-                                            whileTap={{ scale: 0.95 }}
-                                            className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded-lg transition-colors"
-                                            title="View Details"
-                                        >
-                                            <Info className="w-4 h-4" />
-                                        </motion.button>
+                                            <motion.button
+                                                whileTap={{ scale: 0.95 }}
+                                                className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded-lg transition-colors"
+                                                title="View Details"
+                                            >
+                                                <Info className="w-4 h-4" />
+                                            </motion.button>
+                                        </div>
+                                        
+                                        {/* Error message inline */}
+                                        {launchStates[example.id]?.state === 'error' && launchStates[example.id]?.message && (
+                                            <div className="text-xs text-red-400 bg-red-900/20 border border-red-800 rounded p-2">
+                                                {launchStates[example.id].message}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
                                 {/* Card Footer - Quick Actions */}
-                                <div className="px-4 pb-4 flex items-center gap-2">
-                                    {example.links?.docs && (
-                                        <a
-                                            href={example.links.docs}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-400 transition-colors"
-                                            title="Official Documentation"
-                                        >
-                                            <BookOpen className="w-3 h-3" />
-                                            Docs
-                                        </a>
-                                    )}
-                                    {example.links?.docs && example.links?.tutorial && (
-                                        <span className="text-gray-700">•</span>
-                                    )}
-                                    {example.links?.tutorial && (
-                                        <a
-                                            href={example.links.tutorial}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-400 transition-colors"
-                                            title="Tutorial"
-                                        >
-                                            <Video className="w-3 h-3" />
-                                            Tutorial
-                                        </a>
-                                    )}
-                                    {example.links?.tutorial && example.links?.code && (
-                                        <span className="text-gray-700">•</span>
-                                    )}
-                                    {example.links?.code && (
-                                        <a
-                                            href={example.links.code}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-400 transition-colors"
-                                            title="Source Code"
-                                        >
-                                            <Code className="w-3 h-3" />
-                                            Code
-                                        </a>
-                                    )}
+                                <div className="px-4 pb-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        {example.links?.docs && (
+                                            <a
+                                                href={example.links.docs}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-400 transition-colors"
+                                                title="Official Documentation"
+                                            >
+                                                <BookOpen className="w-3 h-3" />
+                                                Docs
+                                            </a>
+                                        )}
+                                        {example.links?.docs && example.links?.tutorial && (
+                                            <span className="text-gray-700">•</span>
+                                        )}
+                                        {example.links?.tutorial && (
+                                            <a
+                                                href={example.links.tutorial}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-400 transition-colors"
+                                                title="Tutorial"
+                                            >
+                                                <Video className="w-3 h-3" />
+                                                Tutorial
+                                            </a>
+                                        )}
+                                        {example.links?.tutorial && example.links?.code && (
+                                            <span className="text-gray-700">•</span>
+                                        )}
+                                        {example.links?.code && (
+                                            <a
+                                                href={example.links.code}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-400 transition-colors"
+                                                title="Source Code"
+                                            >
+                                                <Code className="w-3 h-3" />
+                                                Code
+                                            </a>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <div className="w-1 h-1 rounded-full bg-green-500"></div>
+                                        <span className="text-xs text-gray-600">Official ROS sources</span>
+                                    </div>
                                 </div>
                             </motion.div>
                         )

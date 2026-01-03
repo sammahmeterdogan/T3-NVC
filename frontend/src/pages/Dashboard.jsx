@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import {
     Activity,
     Bot,
@@ -15,11 +16,17 @@ import {
     Battery,
     Wifi,
     HardDrive,
+    AlertTriangle,
+    CheckCircle,
+    XCircle,
+    RefreshCw,
+    ExternalLink,
+    FileText,
+    RotateCcw,
+    X,
 } from 'lucide-react'
 import PageContainer from '../components/layout/PageContainer'
-import { simulationAPI, mapAPI, examplesAPI } from '../services/api'
-import { wsService } from '../services/ws'
-import { rosClient } from '../services/rosClient'
+import { simulationAPI, mapAPI, examplesAPI, healthAPI } from '../services/api'
 
 // Color mapping - Tailwind safe classes
 const colorClasses = {
@@ -47,17 +54,26 @@ const colorClasses = {
         bg: 'bg-gray-500/10',
         text: 'text-gray-500',
     },
+    red: {
+        bg: 'bg-red-500/10',
+        text: 'text-red-500',
+    },
+    yellow: {
+        bg: 'bg-yellow-500/10',
+        text: 'text-yellow-500',
+    },
 }
 
-const StatCard = ({ icon: Icon, title, value, unit, trend, color = 'primary' }) => {
+const StatCard = ({ icon: Icon, title, value, unit, trend, color = 'primary', onClick }) => {
     const colors = colorClasses[color] || colorClasses.primary
 
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            whileHover={{ scale: 1.02 }}
-            className="bg-gray-900 border border-gray-800 rounded-xl p-6"
+            whileHover={{ scale: onClick ? 1.02 : 1 }}
+            onClick={onClick}
+            className={`bg-gray-900 border border-gray-800 rounded-xl p-6 ${onClick ? 'cursor-pointer' : ''}`}
         >
             <div className="flex items-center justify-between mb-4">
                 <div className={`p-3 ${colors.bg} rounded-lg`}>
@@ -83,17 +99,13 @@ const StatCard = ({ icon: Icon, title, value, unit, trend, color = 'primary' }) 
 
 const Dashboard = () => {
     const navigate = useNavigate()
-    const [telemetry, setTelemetry] = useState({
-        battery: 85,
-        cpu: 32,
-        memory: 48,
-        temperature: 36,
-    })
+    const queryClient = useQueryClient()
 
-    const { data: status } = useQuery({
-        queryKey: ['simulation-status'],
-        queryFn: simulationAPI.status,
-        refetchInterval: 2000,
+    // Single source of truth: health summary
+    const { data: health, isLoading: healthLoading } = useQuery({
+        queryKey: ['health-summary'],
+        queryFn: healthAPI.getSummary,
+        refetchInterval: 3000, // Refresh every 3 seconds
     })
 
     const { data: maps } = useQuery({
@@ -106,21 +118,162 @@ const Dashboard = () => {
         queryFn: examplesAPI.list,
     })
 
-    useEffect(() => {
-        // Subscribe to telemetry updates
-        const subscription = wsService.subscribe('/topic/telemetry', (data) => {
-            setTelemetry(data)
-        })
+    // Smart simulation controls
+    const startSimulation = useMutation({
+        mutationFn: simulationAPI.start,
+        onSuccess: () => {
+            toast.success('Simulation started')
+            queryClient.invalidateQueries(['health-summary'])
+            navigate('/simulator')
+        },
+        onError: (error) => {
+            toast.error('Failed to start simulation')
+            console.error(error)
+        },
+    })
 
-        return () => {
-            if (subscription) wsService.unsubscribe('/topic/telemetry')
+    const stopSimulation = useMutation({
+        mutationFn: simulationAPI.stop,
+        onSuccess: () => {
+            toast.success('Simulation stopped')
+            queryClient.invalidateQueries(['health-summary'])
+        },
+        onError: (error) => {
+            toast.error('Failed to stop simulation')
+            console.error(error)
+        },
+    })
+
+    const clearError = useMutation({
+        mutationFn: healthAPI.clearError,
+        onSuccess: () => {
+            toast.success('Error cleared')
+            queryClient.invalidateQueries(['health-summary'])
+        },
+    })
+
+    // Get simulation status from health summary
+    const simStatus = health?.data?.activeSimulation?.status || 'STOPPED'
+    const overallStatus = health?.data?.overallStatus || 'UNKNOWN'
+    const lastError = health?.data?.lastError
+
+    // Status colors
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'HEALTHY':
+            case 'RUNNING':
+            case 'CONNECTED':
+                return 'green'
+            case 'DEGRADED':
+            case 'STARTING':
+                return 'yellow'
+            case 'ERROR':
+            case 'STOPPED':
+            case 'DISCONNECTED':
+                return 'red'
+            default:
+                return 'gray'
         }
-    }, [])
+    }
+
+    // Service health indicator
+    const ServiceHealthBadge = ({ service, label }) => {
+        if (!service) return null
+
+        const status = service.status || 'UNKNOWN'
+        const color = getStatusColor(status)
+        const colors = colorClasses[color]
+
+        return (
+            <div className="flex items-center gap-3">
+                <div className={`w-3 h-3 rounded-full ${
+                    color === 'green' ? 'bg-green-500' :
+                    color === 'yellow' ? 'bg-yellow-500 animate-pulse' :
+                    color === 'red' ? 'bg-red-500' :
+                    'bg-gray-500'
+                }`} />
+                <div className="flex-1">
+                    <p className="text-white text-sm font-medium">{label}</p>
+                    <p className="text-gray-500 text-xs">{service.message || status}</p>
+                </div>
+                {service.url && (
+                    <a
+                        href={service.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gray-400 hover:text-blue-400 transition-colors"
+                        title="Open in new tab"
+                    >
+                        <ExternalLink className="w-3 h-3" />
+                    </a>
+                )}
+            </div>
+        )
+    }
+
+    // Simulation control button (state-aware)
+    const SimulationControl = () => {
+        const isLoading = startSimulation.isPending || stopSimulation.isPending
+
+        if (simStatus === 'RUNNING') {
+            return (
+                <div className="flex gap-2">
+                    <motion.button
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => stopSimulation.mutate()}
+                        disabled={isLoading}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg transition-all"
+                    >
+                        {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Square className="w-4 h-4" />}
+                        {isLoading ? 'Stopping...' : 'Stop Simulation'}
+                    </motion.button>
+                    <motion.button
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                            stopSimulation.mutate()
+                            setTimeout(() => startSimulation.mutate(), 1000)
+                        }}
+                        disabled={isLoading}
+                        className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg transition-all"
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                        Restart
+                    </motion.button>
+                </div>
+            )
+        }
+
+        if (simStatus === 'ERROR') {
+            return (
+                <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => queryClient.invalidateQueries(['health-summary'])}
+                    className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-all"
+                >
+                    <RefreshCw className="w-4 h-4" />
+                    Reconnect
+                </motion.button>
+            )
+        }
+
+        // STOPPED
+        return (
+            <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => startSimulation.mutate()}
+                disabled={isLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg transition-all"
+            >
+                {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                {isLoading ? 'Starting...' : 'Start Simulation'}
+            </motion.button>
+        )
+    }
 
     const quickActions = [
         {
-            title: 'Start Simulation',
-            description: 'Launch TurtleBot3 in Gazebo',
+            title: 'Simulator',
+            description: 'Control TurtleBot3 simulation',
             icon: Play,
             color: 'green',
             action: () => navigate('/simulator'),
@@ -145,39 +298,80 @@ const Dashboard = () => {
         <PageContainer
             title="Dashboard"
             description="Monitor and control your TurtleBot3 simulation"
+            actions={<SimulationControl />}
         >
             <div className="space-y-6">
-                {/* Stats Grid */}
+                {/* System Status Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <StatCard
                         icon={Activity}
-                        title="Simulation Status"
-                        value={status?.status || 'STOPPED'}
-                        color={status?.status === 'RUNNING' ? 'green' : 'gray'}
+                        title="Overall Status"
+                        value={overallStatus}
+                        color={getStatusColor(overallStatus)}
                     />
                     <StatCard
-                        icon={Battery}
-                        title="Battery Level"
-                        value={telemetry.battery}
-                        unit="%"
-                        trend="+2%"
-                        color="blue"
+                        icon={Zap}
+                        title="Simulation"
+                        value={simStatus}
+                        color={getStatusColor(simStatus)}
                     />
                     <StatCard
-                        icon={Cpu}
-                        title="CPU Usage"
-                        value={telemetry.cpu}
-                        unit="%"
-                        color="purple"
+                        icon={Wifi}
+                        title="ROSBridge"
+                        value={health?.data?.rosbridge?.status || 'Unknown'}
+                        color={getStatusColor(health?.data?.rosbridge?.status)}
                     />
                     <StatCard
-                        icon={HardDrive}
-                        title="Memory Usage"
-                        value={telemetry.memory}
-                        unit="%"
-                        color="orange"
+                        icon={Activity}
+                        title="WebSocket"
+                        value={health?.data?.stomp?.status || 'Unknown'}
+                        color={getStatusColor(health?.data?.stomp?.status)}
                     />
                 </div>
+
+                {/* Last Error Card (only shown if error exists) */}
+                {lastError && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-red-900/20 border border-red-800 rounded-xl p-4"
+                    >
+                        <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-3 flex-1">
+                                <div className="p-2 bg-red-900/50 rounded-lg mt-0.5">
+                                    <AlertTriangle className="w-5 h-5 text-red-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <h3 className="text-white font-semibold">Last Error</h3>
+                                        <span className="px-2 py-0.5 bg-red-900/50 text-red-300 text-xs rounded">
+                                            {lastError.source}
+                                        </span>
+                                    </div>
+                                    <p className="text-red-200 text-sm mb-2">{lastError.message}</p>
+                                    {lastError.suggestion && (
+                                        <div className="flex items-start gap-2 p-2 bg-red-900/30 rounded text-xs text-red-300">
+                                            <FileText className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                            <span>{lastError.suggestion}</span>
+                                        </div>
+                                    )}
+                                    {lastError.timestamp && (
+                                        <p className="text-red-400 text-xs mt-2">
+                                            {new Date(lastError.timestamp).toLocaleString()}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => clearError.mutate()}
+                                className="text-red-400 hover:text-red-300 transition-colors p-1"
+                                title="Clear error"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
 
                 {/* Quick Actions */}
                 <div>
@@ -236,7 +430,7 @@ const Dashboard = () => {
                                         <div>
                                             <p className="text-white text-sm font-medium">{map.name}</p>
                                             <p className="text-gray-500 text-xs">
-                                                {new Date(map.createdAt).toLocaleDateString()}
+                                                {map.createdAt ? new Date(map.createdAt).toLocaleDateString() : 'Unknown'}
                                             </p>
                                         </div>
                                     </div>
@@ -282,11 +476,11 @@ const Dashboard = () => {
                                     </div>
                                     <span className={`px-2 py-1 text-xs rounded-full ${
                                         example.difficulty === 'EASY' ? 'bg-green-900/50 text-green-400' :
-                                            example.difficulty === 'MEDIUM' ? 'bg-yellow-900/50 text-yellow-400' :
-                                                'bg-red-900/50 text-red-400'
+                                        example.difficulty === 'MEDIUM' ? 'bg-yellow-900/50 text-yellow-400' :
+                                        'bg-red-900/50 text-red-400'
                                     }`}>
-                    {example.difficulty}
-                  </span>
+                                        {example.difficulty}
+                                    </span>
                                 </div>
                             ))}
                             {(!examples || examples.length === 0) && (
@@ -296,32 +490,23 @@ const Dashboard = () => {
                     </motion.div>
                 </div>
 
-                {/* System Health */}
+                {/* System Health Details */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-gray-900 border border-gray-800 rounded-xl p-6"
                 >
                     <h3 className="text-white font-semibold mb-4">System Health</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <ServiceHealthBadge service={health?.data?.rosbridge} label="ROS Bridge" />
+                        <ServiceHealthBadge service={health?.data?.stomp} label="WebSocket (STOMP)" />
+                        <ServiceHealthBadge service={health?.data?.database} label="Database" />
+                        <ServiceHealthBadge service={health?.data?.rvizNovnc} label="RViz Viewer" />
+                        <ServiceHealthBadge service={health?.data?.turtlesimNovnc} label="Turtlesim Viewer" />
                         <div className="flex items-center gap-3">
-                            <div className={`w-3 h-3 rounded-full ${rosClient.isConnected() ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
-                            <div>
-                                <p className="text-white text-sm">ROS Bridge</p>
-                                <p className="text-gray-500 text-xs">{rosClient.isConnected() ? 'Connected' : 'Disconnected'}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className={`w-3 h-3 rounded-full ${wsService.isConnected() ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
-                            <div>
-                                <p className="text-white text-sm">WebSocket</p>
-                                <p className="text-gray-500 text-xs">{wsService.isConnected() ? 'Active' : 'Inactive'}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
-                            <div>
-                                <p className="text-white text-sm">Backend API</p>
+                            <div className={`w-3 h-3 rounded-full bg-blue-500`} />
+                            <div className="flex-1">
+                                <p className="text-white text-sm font-medium">Backend API</p>
                                 <p className="text-gray-500 text-xs">Operational</p>
                             </div>
                         </div>

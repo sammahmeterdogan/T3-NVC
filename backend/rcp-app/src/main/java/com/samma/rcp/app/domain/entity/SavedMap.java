@@ -12,6 +12,7 @@ public class SavedMap {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
 
     @Column(nullable=false) private String name;
+    @Column(length=100) private String scenario; // SLAM, CARTOGRAPHER, etc.
     @Column(name="file_path", nullable=false, length=500) private String filePath;
     @Column(name="pgm_file_path", length=500) private String pgmFilePath;
     @Column(name="yaml_file_path", length=500) private String yamlFilePath;
