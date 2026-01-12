@@ -1,0 +1,45 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: false
+
+server:
+  port: 8080
+
+cors:
+  allowed-origins: "http://localhost:5173,http://localhost:3000"
+
+logging:
+  level:
+    com.samma.rcp: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.springframework.web: DEBUG
+
+ros:
+  bridge:
+    url: "ws://localhost:9090"
+    reconnect-interval: 5000
+  docker:
+    host: "unix:///var/run/docker.sock"
+    network: "turtlebot-network"
+  simulation:
+    default-model: "burger"
+    startup-timeout: 30000

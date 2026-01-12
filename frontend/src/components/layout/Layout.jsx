@@ -2,12 +2,13 @@ import React, { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
+import LiveTerminal from '../common/LiveTerminal'
 
 const Layout = () => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
     return (
-        <div className="flex h-screen bg-gray-950 overflow-hidden">
+        <div className="flex h-screen bg-gray-950 overflow-hidden relative">
             {/* Sidebar */}
             <Sidebar isCollapsed={sidebarCollapsed} setIsCollapsed={setSidebarCollapsed} />
 
@@ -23,6 +24,9 @@ const Layout = () => {
                     </div>
                 </main>
             </div>
+
+            {/* Global System Terminal - her şeyin üzerinde durur */}
+            <LiveTerminal />
         </div>
     )
 }

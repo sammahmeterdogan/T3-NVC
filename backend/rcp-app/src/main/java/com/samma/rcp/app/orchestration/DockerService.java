@@ -10,26 +10,27 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Map;
 
 /**
- * Sadeçe sistemde kurulu docker/compose CLI'larını çağırır.
- * CI/CD ve farklı kullanıcılar için path bağımsızdır; compose "-f <dosya>" ile veriliyor.
+ * Invokes docker/compose CLI commands.
+ * Path-independent for CI/CD; compose file specified via "-f".
  */
 @Component
 public class DockerService {
     private static final Logger log = LoggerFactory.getLogger(DockerService.class);
 
-    /** docker compose up -d */
-    public void composeUp(Path composeFile) {
-        run("docker","compose","-f", composeFile.toString(), "up", "-d");
+    /** docker compose up -d with environment variables */
+    public void composeUp(Path composeFile, Map<String, String> env) {
+        run(env, "docker", "compose", "-f", composeFile.toString(), "up", "-d");
     }
 
     /** docker compose down */
     public void composeDown(Path composeFile) {
-        run("docker","compose","-f", composeFile.toString(), "down");
+        run(null, "docker", "compose", "-f", composeFile.toString(), "down");
     }
 
-    /** Belirtilen host:port dinlemeye geçti mi? */
+    /** Checks if host:port is reachable within timeout */
     public boolean waitForPort(String host, int port, Duration timeout) {
         long deadline = System.nanoTime() + timeout.toNanos();
         while (System.nanoTime() < deadline) {
@@ -38,20 +39,27 @@ public class DockerService {
                 return true;
             } catch (IOException ignored) {
                 try { Thread.sleep(300); } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt(); return false;
+                    Thread.currentThread().interrupt(); 
+                    return false;
                 }
             }
         }
         return false;
     }
 
-    private void run(String... cmd) {
+    private void run(Map<String, String> env, String... cmd) {
         try {
-            Process p = new ProcessBuilder(cmd).redirectErrorStream(true).start();
+            ProcessBuilder pb = new ProcessBuilder(cmd).redirectErrorStream(true);
+            if (env != null && !env.isEmpty()) {
+                pb.environment().putAll(env);
+            }
+            Process p = pb.start();
             String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             int code = p.waitFor();
-            log.info("[compose] {}", out.trim()); // Log: UI istemez; opsiyonel saklanır
-            if (code != 0) throw new IllegalStateException("Process exit: " + code);
+            log.info("[compose] {}", out.trim());
+            if (code != 0) {
+                throw new IllegalStateException("Process exit code: " + code);
+            }
         } catch (IOException | InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);

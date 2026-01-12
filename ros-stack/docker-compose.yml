@@ -1,16 +1,19 @@
-# ros-stack/docker-compose.yml  (FINAL - dosyanın KENDİ klasörü baz alınır)
+# ros-stack/docker-compose.yml
+# Standalone TurtleBot3 simulation stack.
+# NOTE: When used alongside root docker-compose.yml, set ROSBRIDGE_HOST_PORT to avoid conflict.
+# Default port 9092 avoids conflict with root compose's rosbridge on 9091.
 services:
   rosbridge:
     build:
       context: .
       dockerfile: rosbridge.Dockerfile
-    container_name: rosbridge
+    container_name: tb3-rosbridge
     restart: unless-stopped
     environment:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
       - ROS_BRIDGE_PORT=${ROS_BRIDGE_PORT:-9090}
     ports:
-      - "${ROSBRIDGE_HOST_PORT:-9091}:9090"
+      - "${ROSBRIDGE_HOST_PORT:-9092}:9090"
     networks: [rosnet]
 
   tb3-sim:

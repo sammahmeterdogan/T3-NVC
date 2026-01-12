@@ -48,6 +48,13 @@ const menuItems = [
         activeColor: 'text-orange-400',
     },
     {
+        path: '/navigation',
+        name: 'Navigation',
+        icon: Map,
+        color: 'text-teal-400',
+        activeColor: 'text-teal-400',
+    },
+    {
         path: '/settings',
         name: 'Settings',
         icon: Settings,
@@ -60,6 +67,13 @@ const menuItems = [
         icon: Turtle,
         color: 'text-yellow-400',
         activeColor: 'text-yellow-400',
+    },
+    {
+        path: '/so-arm-101',
+        name: 'So Arm101',
+        icon: Bot,
+        color: 'text-cyan-400',
+        activeColor: 'text-cyan-400',
     },
 ]
 

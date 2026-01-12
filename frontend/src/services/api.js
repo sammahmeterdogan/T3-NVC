@@ -1,5 +1,6 @@
 // src/services/api.js
 import axios from 'axios'
+import { rosClient } from './rosClient'
 
 // Varsayılan olarak backend host portu 8082'ye (docker-compose varsayılanı) işaret et
 const API_BASE_URL = 'http://localhost:8082/api'
@@ -62,8 +63,19 @@ export const teleopAPI = {
 // --- Navigation APIs ---
 export const navigationAPI = {
     sendGoal: (data) => api.post('/nav/goal', data),
-    sendWaypoints: (data) => api.post('/nav/waypoints', data),
-    getStatus: () => api.get('/nav/status'),
+    // NOTE: sendWaypoints and getStatus are not implemented in backend
+    executeMission: async (waypoints) => {
+        console.log('[navigationAPI] executeMission called with waypoints:', waypoints)
+        for (let i = 0; i < waypoints.length; i += 1) {
+            const wp = waypoints[i]
+            console.log(`[navigationAPI] Reaching Waypoint ${i + 1}...`, wp)
+            // Her waypoint için 2 saniyelik mock bekleme
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((resolve) => setTimeout(resolve, 2000))
+        }
+        console.log('[navigationAPI] Mission execution completed')
+        return { ok: true }
+    },
 }
 
 // --- Map APIs ---
@@ -80,28 +92,9 @@ export const mapAPI = {
     delete: (id) => api.delete(`/map/${id}`),
 }
 
-// --- Config APIs ---
-export const configAPI = {
-    getModels: () => api.get('/config/models'),
-    getRobotConfigs: () => api.get('/config'),
-    createConfig: (data) => api.post('/config', data),
-    updateConfig: (id, data) => api.put(`/config/${id}`, data),
-}
-
-// --- SLAM APIs ---
-export const slamAPI = {
-    start: () => api.post('/slam/start'),
-    stop: () => api.post('/slam/stop'),
-    getStatus: () => api.get('/slam/status'),
-}
-
-// --- Sensor APIs ---
-export const sensorAPI = {
-    getScan: () => api.get('/sensors/scan'),
-    getOdom: () => api.get('/sensors/odom'),
-    getImu: () => api.get('/sensors/imu'),
-    getBattery: () => api.get('/sensors/battery'),
-}
+// NOTE: configAPI, slamAPI, and sensorAPI have been removed.
+// These endpoints do not exist in the backend.
+// If needed, implement corresponding backend controllers first.
 
 // --- Visualization APIs ---
 export const visualizationAPI = {
@@ -120,6 +113,74 @@ export const healthAPI = {
     getSummary: () => api.get('/health/summary'),
     clearError: () => api.post('/health/clear-error'),
     ping: () => api.get('/health/ping'),
+}
+
+// --- ROSBag Recording APIs (mock) ---
+export const rosbagAPI = {
+    startRecording: () => {
+        console.log('[rosbagAPI] startRecording called')
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                console.log('[rosbagAPI] recording started')
+                resolve({ ok: true })
+            }, 500)
+        })
+    },
+    stopRecording: () => {
+        console.log('[rosbagAPI] stopRecording called')
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                const payload = {
+                    filename: 'session_2024_01.bag',
+                    size: '45MB',
+                }
+                console.log('[rosbagAPI] recording stopped', payload)
+                resolve(payload)
+            }, 500)
+        })
+    },
+}
+
+// --- Arm APIs (real ROS publishing) ---
+export const armAPI = {
+    sendJoints: (joints) => {
+        if (!rosClient.isConnected()) {
+            return Promise.reject(new Error('ROS Bridge not connected'))
+        }
+
+        const payload = {
+            mode: 'JOINTS',
+            data: joints,
+        }
+
+        try {
+            rosClient.publishTopic('/so_arm/command', 'std_msgs/String', {
+                data: JSON.stringify(payload),
+            })
+            return Promise.resolve({ ok: true })
+        } catch (e) {
+            return Promise.reject(e)
+        }
+    },
+    sendPose: (pose) => {
+        if (!rosClient.isConnected()) {
+            return Promise.reject(new Error('ROS Bridge not connected'))
+        }
+
+        const payload = {
+            mode: 'IK',
+            data: pose,
+        }
+
+        try {
+            rosClient.publishTopic('/so_arm/command', 'std_msgs/String', {
+                data: JSON.stringify(payload),
+            })
+            return Promise.resolve({ ok: true })
+        } catch (e) {
+            return Promise.reject(e)
+        }
+    },
 }
 
 export default api

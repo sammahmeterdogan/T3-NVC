@@ -84,7 +84,7 @@ public class MapController extends BaseController {
             return success("Map loaded successfully");
         } catch (Exception e) {
             log.error("[MapController] Failed to load map {}", id, e);
-            return error("Failed to load map: " + e.getMessage());
+            return error("Failed to load map: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -99,7 +99,7 @@ public class MapController extends BaseController {
             return success("Map deleted successfully");
         } catch (Exception e) {
             log.error("[MapController] Failed to delete map {}", id, e);
-            return error("Failed to delete map: " + e.getMessage());
+            return error("Failed to delete map: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -141,7 +141,7 @@ public class MapController extends BaseController {
             return created(uploaded);
         } catch (Exception e) {
             log.error("[MapController] Failed to upload map", e);
-            return error("Failed to upload map: " + e.getMessage());
+            return error("Failed to upload map: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 

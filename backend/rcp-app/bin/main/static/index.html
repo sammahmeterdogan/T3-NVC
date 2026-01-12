@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <title>TurtleBot3 Web Simulator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- roslibjs CDN (ROS2 için yeterli) -->
+    <script src="https://cdn.jsdelivr.net/npm/roslib/build/roslib.min.js"></script>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="topbar">
+    <div class="brand">TurtleBot3 Simulator</div>
+    <div class="status-group">
+        <span id="rosStatus" class="badge">ROS: Disconnected</span>
+        <span id="wsStatus" class="badge">WebSocket: Idle</span>
+    </div>
+    <div class="actions">
+        <!-- Kullanıcı yalnız butona basar; arkada Docker/Compose halledilir -->
+        <button id="btnStart" class="btn success">Start Simulation</button>
+        <button id="btnStop"  class="btn danger">Stop</button>
+    </div>
+</header>
+
+<main class="grid">
+    <section>
+        <h3>Teleoperation</h3>
+        <div class="teleop">
+            <div class="keys">
+                <div>W / ↑ : ileri</div>
+                <div>S / ↓ : geri</div>
+                <div>A / ← : sola dön</div>
+                <div>D / → : sağa dön</div>
+                <div>Space : dur</div>
+                <div>Shift : hız boost</div>
+            </div>
+            <div class="sliders">
+                <!-- Bu değerler TB3 için güvenli varsayılanlardır; değiştirilebilir -->
+                <label>Max Linear (m/s)
+                    <input type="range" min="0.05" max="0.50" step="0.01" value="0.26" id="maxLinear" />
+                </label>
+                <label>Max Angular (rad/s)
+                    <input type="range" min="0.5" max="3.0" step="0.01" value="1.82" id="maxAngular" />
+                </label>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h3>/chatter</h3>
+        <pre id="chatterLog" class="log"></pre>
+    </section>
+
+    <section>
+        <h3>Telemetry</h3>
+        <div class="telemetry">
+            <div><b>Position</b> X:<span id="posX">0.00</span>  Y:<span id="posY">0.00</span>  θ:<span id="posT">0.00</span></div>
+            <div><b>Velocity</b> Linear:<span id="velLin">0.00</span> m/s  Angular:<span id="velAng">0.00</span> rad/s</div>
+            <small id="odomHint">/odom bağlı değilse burada 0 kalır (sim/robot yayınlamıyorsa normal).</small>
+        </div>
+    </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

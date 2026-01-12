@@ -1,8 +1,9 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Bell, Search, User, Power, Info, GitBranch } from 'lucide-react'
+import { Bell, Search, User, Power, Info, GitBranch, Disc } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { simulationAPI } from '../../services/api'
+import toast from 'react-hot-toast'
+import { simulationAPI, rosbagAPI } from '../../services/api'
 
 const Topbar = () => {
     const { data: status } = useQuery({
@@ -10,6 +11,31 @@ const Topbar = () => {
         queryFn: simulationAPI.status,
         refetchInterval: 5000,
     })
+
+    const [isRecording, setIsRecording] = useState(false)
+    const [isBusy, setIsBusy] = useState(false)
+
+    const handleToggleRecording = async () => {
+        if (isBusy) return
+        setIsBusy(true)
+
+        try {
+            if (!isRecording) {
+                await rosbagAPI.startRecording()
+                setIsRecording(true)
+                toast.success('Recording started')
+            } else {
+                const result = await rosbagAPI.stopRecording()
+                setIsRecording(false)
+                toast.success(`Bag saved: ${result.filename}`)
+            }
+        } catch (e) {
+            console.error('[Topbar] Recording toggle failed', e)
+            toast.error('Recording action failed')
+        } finally {
+            setIsBusy(false)
+        }
+    }
 
     const currentTime = new Date().toLocaleTimeString('en-US', {
         hour: '2-digit',
@@ -61,6 +87,25 @@ const Topbar = () => {
             {/* Right Section - Actions */}
             <div className="flex items-center gap-3">
                 <span className="text-sm text-gray-400">{currentTime}</span>
+
+                {/* Record Session Button */}
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleToggleRecording}
+                    disabled={isBusy}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors text-sm
+                        ${isRecording
+                            ? 'border-red-500/40 bg-red-500/10 text-red-400'
+                            : 'border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700'
+                        } disabled:opacity-60 disabled:cursor-not-allowed`}
+                >
+                    <Disc
+                        className={`w-4 h-4 ${isRecording ? 'text-red-400 animate-pulse' : 'text-gray-300'}`}
+                        fill={isRecording ? 'currentColor' : 'none'}
+                    />
+                    <span>{isRecording ? 'Recording...' : 'Record'}</span>
+                </motion.button>
 
                 <motion.button
                     whileHover={{ scale: 1.05 }}

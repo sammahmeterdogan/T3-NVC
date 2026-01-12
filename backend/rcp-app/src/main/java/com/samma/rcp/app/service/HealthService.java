@@ -9,12 +9,14 @@ import com.samma.rcp.app.orchestration.SimulationOrchestrator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import javax.sql.DataSource;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.sql.Connection;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +31,7 @@ public class HealthService {
 
     private final RosProperties rosProperties;
     private final SimulationOrchestrator orchestrator;
+    private final DataSource dataSource;
     private final HttpClient httpClient;
     
     // Cached health states (prevents thundering herd)
@@ -43,9 +46,10 @@ public class HealthService {
     private static final int TCP_TIMEOUT_MS = 1000; // 1 second for TCP checks
     private static final int HTTP_TIMEOUT_MS = 2000; // 2 seconds for HTTP checks
 
-    public HealthService(RosProperties rosProperties, SimulationOrchestrator orchestrator) {
+    public HealthService(RosProperties rosProperties, SimulationOrchestrator orchestrator, DataSource dataSource) {
         this.rosProperties = rosProperties;
         this.orchestrator = orchestrator;
+        this.dataSource = dataSource;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(HTTP_TIMEOUT_MS))
                 .build();
@@ -270,7 +274,7 @@ public class HealthService {
     }
 
     /**
-     * Check database connectivity
+     * Check database connectivity by actually acquiring a connection.
      */
     private ServiceHealth checkDatabase() {
         String cacheKey = "database";
@@ -281,22 +285,35 @@ public class HealthService {
         
         ServiceHealth health;
         
-        try {
-            // Simple check - if we got this far, JPA connection is working
-            // In production, you'd query a dummy table or use DataSource.getConnection()
-            health = ServiceHealth.builder()
-                    .status("CONNECTED")
-                    .message("Database operational")
-                    .url("PostgreSQL")
-                    .lastCheckMs(System.currentTimeMillis())
-                    .retryAttempts(0)
-                    .build();
-                    
+        try (Connection conn = dataSource.getConnection()) {
+            // Actually verify the connection is valid
+            boolean valid = conn.isValid(2); // 2 second timeout
+            
+            if (valid) {
+                health = ServiceHealth.builder()
+                        .status("CONNECTED")
+                        .message("Database operational")
+                        .url("PostgreSQL")
+                        .lastCheckMs(System.currentTimeMillis())
+                        .retryAttempts(0)
+                        .build();
+            } else {
+                health = ServiceHealth.builder()
+                        .status("DEGRADED")
+                        .message("Database connection invalid")
+                        .url("PostgreSQL")
+                        .lastCheckMs(System.currentTimeMillis())
+                        .retryAttempts(0)
+                        .build();
+                        
+                setLastError("BACKEND", "Database connection invalid",
+                           "Check PostgreSQL container: docker-compose up -d postgres");
+            }
         } catch (Exception e) {
             log.error("[HealthService] Database check failed", e);
             health = ServiceHealth.builder()
                     .status("ERROR")
-                    .message("Database connection failed")
+                    .message("Database connection failed: " + e.getMessage())
                     .url("PostgreSQL")
                     .lastCheckMs(System.currentTimeMillis())
                     .retryAttempts(0)
