@@ -47,7 +47,10 @@ export default defineConfig(({ mode }) => {
                 'react-dom',
                 'three',
                 'roslib',
-                '@tanstack/react-query'
+                '@tanstack/react-query',
+                '@react-three/fiber',
+                '@react-three/drei',
+                'urdf-loader'
             ]
         },
         build: {

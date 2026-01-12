@@ -1,12 +1,15 @@
 package com.samma.rcp.app.service;
 
-import com.samma.rcp.app.domain.SimStatusDto; // DTO sende zaten var
+import com.samma.rcp.app.dto.SimStatusDto;
+import com.samma.rcp.app.domain.model.RobotModel;
+import com.samma.rcp.app.domain.model.ScenarioType;
+import com.samma.rcp.app.dto.SimulationStartRequest;
 import com.samma.rcp.app.orchestration.SimulationOrchestrator;
 import org.springframework.stereotype.Service;
 
 /**
- * İnce servis katmanı; Controller ile Orchestrator arasındaki köprü.
- * DÖNÜŞ: Her zaman SimStatusDto (UI tek tip JSON beklesin).
+ * Service layer bridging Controller and Orchestrator.
+ * Returns SimStatusDto for consistent API responses.
  */
 @Service
 public class SimulationService {
@@ -17,9 +20,16 @@ public class SimulationService {
         this.orchestrator = orchestrator;
     }
 
-    /** Simülasyonu başlatır ve websocket bilgisiyle birlikte durum döner. */
-    public SimStatusDto start() {
-        orchestrator.start();
+    /** Starts simulation with optional model/scenario parameters. */
+    public SimStatusDto start(SimulationStartRequest request) {
+        RobotModel model = (request != null && request.getModel() != null) 
+            ? request.getModel() 
+            : RobotModel.BURGER;
+        ScenarioType scenario = (request != null && request.getScenario() != null) 
+            ? request.getScenario() 
+            : ScenarioType.TELEOP;
+        
+        orchestrator.start(model, scenario);
         return buildStatus();
     }
 

@@ -1,0 +1,19 @@
+/* Basit koyu tema – ekiplerin kolayca değiştirebilmesi için sade tutuldu */
+:root { --bg:#0f172a; --card:#111827; --muted:#94a3b8; --ok:#10b981; --err:#ef4444; --txt:#e5e7eb; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--txt); font:14px/1.5 system-ui,Segoe UI,Roboto,Ubuntu; }
+.topbar { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #1f2937; }
+.brand { font-weight:600; }
+.actions .btn { margin-left:8px; }
+.btn { padding:8px 12px; border:0; border-radius:8px; cursor:pointer; background:#374151; color:#fff; }
+.btn.success { background:var(--ok); }
+.btn.danger { background:var(--err); }
+.badge { padding:4px 8px; background:#1f2937; border-radius:999px; margin-right:8px; color:var(--muted); }
+.grid { display:grid; gap:16px; grid-template-columns:repeat(3,1fr); padding:16px; }
+section { background:var(--card); border:1px solid #1f2937; border-radius:12px; padding:16px; }
+h3 { margin:0 0 12px 0; font-size:16px; }
+.log { height:260px; overflow:auto; background:#0b1220; border:1px solid #1f2937; border-radius:8px; padding:8px; }
+.teleop { display:flex; justify-content:space-between; gap:16px; }
+.keys div { color:var(--muted); margin:6px 0; }
+.sliders label { display:block; margin:6px 0; color:var(--muted); }
+.telemetry { color:#cbd5e1; }

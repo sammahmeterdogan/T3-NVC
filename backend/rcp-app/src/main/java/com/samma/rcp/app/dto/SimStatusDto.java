@@ -1,4 +1,4 @@
-package com.samma.rcp.app.domain;
+package com.samma.rcp.app.dto;
 
 /**
  * Tek tip durum yanıtı: UI bu JSON’u bekler.

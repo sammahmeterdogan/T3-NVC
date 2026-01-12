@@ -11,14 +11,19 @@ import org.java_websocket.handshake.ServerHandshake;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
+/**
+ * ROSBridge WebSocket client with automatic reconnection support.
+ * 
+ * Responsibilities:
+ * - Maintains WebSocket connection to rosbridge
+ * - Auto-reconnects on connection loss before sending commands
+ * - Publishes Twist and GoalPose messages to ROS topics
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -30,165 +35,208 @@ public class RosBridgeClient {
     private volatile boolean connected = false;
     private WebSocketClient client;
     private String currentUrl;
+    
+    private static final int MAX_RECONNECT_ATTEMPTS = 3;
+    private static final long RECONNECT_DELAY_MS = 500;
 
+    /**
+     * Connects to rosbridge WebSocket server.
+     * If already connected to the same URL, returns immediately.
+     */
     public synchronized void connect(String wsUrl) {
-        if (connected && wsUrl.equals(currentUrl)) return;
+        if (connected && wsUrl.equals(currentUrl)) {
+            return;
+        }
+        
         try {
             currentUrl = wsUrl;
-            if (client != null && client.isOpen()) client.close();
-
-            client = new WebSocketClient(new URI(wsUrl)) {
-                @Override public void onOpen(ServerHandshake h) { connected = true; log.info("rosbridge connected {}", wsUrl); }
-                @Override public void onMessage(String message) { /* no-op */ }
-                @Override public void onClose(int code, String reason, boolean remote) { connected = false; log.warn("rosbridge closed: {}", reason); }
-                @Override public void onError(Exception ex) { connected = false; log.error("rosbridge error", ex); }
-            };
-            client.connectBlocking();
+            closeExistingConnection();
+            createAndConnectClient(wsUrl);
         } catch (Exception e) {
             connected = false;
             throw new RuntimeException("rosbridge connect failed: " + wsUrl, e);
         }
     }
 
+    /**
+     * Disconnects from rosbridge.
+     */
     public synchronized void disconnect() {
-        try { if (client != null) client.closeBlocking(); } catch (Exception ignored) {}
-        connected = false;
-    }
-
-    private void send(Map<String, Object> payload) {
-        // #region agent log
         try {
-            boolean clientNull = (client == null);
-            boolean clientOpen = (client != null && client.isOpen());
-            String logLine = String.format("{\"id\":\"%s\",\"timestamp\":%d,\"location\":\"RosBridgeClient.send:57\",\"message\":\"Entry\",\"data\":{\"clientNull\":%s,\"clientOpen\":%s,\"connected\":%s},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}\n",
-                UUID.randomUUID(), System.currentTimeMillis(), clientNull, clientOpen, connected);
-            Path logPath = Paths.get(System.getProperty("user.dir", "/app"), ".cursor", "debug.log");
-            Files.write(logPath, logLine.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (Exception ignored) {}
-        // #endregion
-        try {
-            if (client == null) {
-                // #region agent log
-                try {
-                    String logLine = String.format("{\"id\":\"%s\",\"timestamp\":%d,\"location\":\"RosBridgeClient.send:66\",\"message\":\"Client is null\",\"data\":{},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}\n",
-                        UUID.randomUUID(), System.currentTimeMillis());
-                    Path logPath = Paths.get(System.getProperty("user.dir", "/app"), ".cursor", "debug.log");
-                    Files.write(logPath, logLine.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (Exception ignored) {}
-                // #endregion
-                throw new RuntimeException("rosbridge client is null - not connected");
+            if (client != null) {
+                client.closeBlocking();
             }
-            String json = om.writeValueAsString(payload);
-            client.send(json);
-            // #region agent log
-            try {
-                String logLine = String.format("{\"id\":\"%s\",\"timestamp\":%d,\"location\":\"RosBridgeClient.send:76\",\"message\":\"Send success\",\"data\":{},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}\n",
-                    UUID.randomUUID(), System.currentTimeMillis());
-                String logDir = System.getenv().getOrDefault("DEBUG_LOG_DIR", System.getProperty("user.dir", "/app"));
-            Path logPath = Paths.get(logDir, ".cursor", "debug.log");
-                Files.write(logPath, logLine.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (Exception ignored) {}
-            // #endregion
         } catch (Exception e) {
-            // #region agent log
-            try {
-                String logLine = String.format("{\"id\":\"%s\",\"timestamp\":%d,\"location\":\"RosBridgeClient.send:84\",\"message\":\"Send exception\",\"data\":{\"exception\":\"%s\",\"message\":\"%s\"},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}\n",
-                    UUID.randomUUID(), System.currentTimeMillis(), e.getClass().getName(), e.getMessage().replace("\"", "\\\""));
-                String logDir = System.getenv().getOrDefault("DEBUG_LOG_DIR", System.getProperty("user.dir", "/app"));
-            Path logPath = Paths.get(logDir, ".cursor", "debug.log");
-                Files.write(logPath, logLine.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (Exception ignored) {}
-            // #endregion
-            throw new RuntimeException("rosbridge send failed", e);
+            log.warn("Error during disconnect", e);
         }
+        connected = false;
+        client = null;
     }
 
-    private void advertise(String topic, String type) {
-        send(Map.of("op", "advertise", "id", "adv-"+topic, "topic", topic, "type", type));
-    }
-
-    private void publish(String topic, Object msg) {
-        send(Map.of("op", "publish", "id", "pub-"+UUID.randomUUID(), "topic", topic, "msg", msg));
-    }
-
+    /**
+     * Publishes a Twist message for robot velocity control.
+     * Auto-reconnects if not connected.
+     */
     public void publishTwist(TwistDTO dto) {
-        // #region agent log
-        try {
-            String logLine = String.format("{\"id\":\"%s\",\"timestamp\":%d,\"location\":\"RosBridgeClient.publishTwist:70\",\"message\":\"Entry\",\"data\":{\"topic\":\"%s\",\"linear\":%f,\"angular\":%f,\"connected\":%s},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"C\"}\n",
-                UUID.randomUUID(), System.currentTimeMillis(), dto.getTopic() == null ? "/cmd_vel" : dto.getTopic(), dto.getLinear(), dto.getAngular(), connected);
-            String logDir = System.getenv().getOrDefault("DEBUG_LOG_DIR", System.getProperty("user.dir", "/app"));
-            Path logPath = Paths.get(logDir, ".cursor", "debug.log");
-            Files.write(logPath, logLine.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (Exception ignored) {}
-        // #endregion
-        String topic = dto.getTopic() == null ? "/cmd_vel" : dto.getTopic();
-        try {
-            advertise(topic, "geometry_msgs/msg/Twist");
-            // #region agent log
-            try {
-                String logLine = String.format("{\"id\":\"%s\",\"timestamp\":%d,\"location\":\"RosBridgeClient.publishTwist:81\",\"message\":\"Advertise success\",\"data\":{},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"C\"}\n",
-                    UUID.randomUUID(), System.currentTimeMillis());
-                String logDir = System.getenv().getOrDefault("DEBUG_LOG_DIR", System.getProperty("user.dir", "/app"));
-            Path logPath = Paths.get(logDir, ".cursor", "debug.log");
-                Files.write(logPath, logLine.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (Exception ignored) {}
-            // #endregion
-        } catch (Exception e) {
-            // #region agent log
-            try {
-                String logLine = String.format("{\"id\":\"%s\",\"timestamp\":%d,\"location\":\"RosBridgeClient.publishTwist:89\",\"message\":\"Advertise exception\",\"data\":{\"exception\":\"%s\"},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"C\"}\n",
-                    UUID.randomUUID(), System.currentTimeMillis(), e.getClass().getName());
-                String logDir = System.getenv().getOrDefault("DEBUG_LOG_DIR", System.getProperty("user.dir", "/app"));
-            Path logPath = Paths.get(logDir, ".cursor", "debug.log");
-                Files.write(logPath, logLine.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (Exception ignored) {}
-            // #endregion
-            throw e;
-        }
+        ensureConnected();
+        
+        String topic = dto.getTopic() != null ? dto.getTopic() : "/cmd_vel";
+        advertise(topic, "geometry_msgs/msg/Twist");
+        
         Map<String, Object> msg = Map.of(
                 "linear", Map.of("x", dto.getLinear(), "y", 0.0, "z", 0.0),
                 "angular", Map.of("x", 0.0, "y", 0.0, "z", dto.getAngular())
         );
-        try {
-            publish(topic, msg);
-            // #region agent log
-            try {
-                String logLine = String.format("{\"id\":\"%s\",\"timestamp\":%d,\"location\":\"RosBridgeClient.publishTwist:103\",\"message\":\"Publish success\",\"data\":{},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"C\"}\n",
-                    UUID.randomUUID(), System.currentTimeMillis());
-                String logDir = System.getenv().getOrDefault("DEBUG_LOG_DIR", System.getProperty("user.dir", "/app"));
-            Path logPath = Paths.get(logDir, ".cursor", "debug.log");
-                Files.write(logPath, logLine.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (Exception ignored) {}
-            // #endregion
-        } catch (Exception e) {
-            // #region agent log
-            try {
-                String logLine = String.format("{\"id\":\"%s\",\"timestamp\":%d,\"location\":\"RosBridgeClient.publishTwist:111\",\"message\":\"Publish exception\",\"data\":{\"exception\":\"%s\"},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"C\"}\n",
-                    UUID.randomUUID(), System.currentTimeMillis(), e.getClass().getName());
-                String logDir = System.getenv().getOrDefault("DEBUG_LOG_DIR", System.getProperty("user.dir", "/app"));
-            Path logPath = Paths.get(logDir, ".cursor", "debug.log");
-                Files.write(logPath, logLine.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            } catch (Exception ignored) {}
-            // #endregion
-            throw e;
-        }
+        publish(topic, msg);
     }
 
+    /**
+     * Publishes a goal pose for navigation.
+     * Auto-reconnects if not connected.
+     */
     public void sendGoal(GoalPoseDTO goal) {
-        String frame = goal.getFrameId() == null ? "map" : goal.getFrameId();
+        ensureConnected();
+        
+        String frame = goal.getFrameId() != null ? goal.getFrameId() : "map";
         advertise("/goal_pose", "geometry_msgs/msg/PoseStamped");
+        
         Map<String, Object> msg = Map.of(
-                "header", Map.of("stamp", Map.of("sec", Instant.now().getEpochSecond(), "nanosec", 0), "frame_id", frame),
+                "header", Map.of(
+                        "stamp", Map.of("sec", Instant.now().getEpochSecond(), "nanosec", 0), 
+                        "frame_id", frame
+                ),
                 "pose", Map.of(
                         "position", Map.of("x", goal.getX(), "y", goal.getY(), "z", 0.0),
-                        "orientation", yawToQuat(goal.getTheta())
+                        "orientation", yawToQuaternion(goal.getTheta())
                 )
         );
         publish("/goal_pose", msg);
     }
 
-    private Map<String, Object> yawToQuat(double yaw) {
-        double cy = Math.cos(yaw * 0.5), sy = Math.sin(yaw * 0.5);
+    /**
+     * Ensures connection is established, attempting reconnect if needed.
+     * Throws RuntimeException if reconnection fails.
+     */
+    private synchronized void ensureConnected() {
+        if (isConnectionActive()) {
+            return;
+        }
+        
+        if (currentUrl == null) {
+            throw new RuntimeException("ROSBridge URL not configured. Call connect() first.");
+        }
+        
+        log.info("ROSBridge connection lost, attempting reconnect to {}", currentUrl);
+        
+        for (int attempt = 1; attempt <= MAX_RECONNECT_ATTEMPTS; attempt++) {
+            try {
+                closeExistingConnection();
+                createAndConnectClient(currentUrl);
+                
+                if (connected) {
+                    log.info("ROSBridge reconnected successfully on attempt {}", attempt);
+                    return;
+                }
+            } catch (Exception e) {
+                log.warn("Reconnect attempt {} failed: {}", attempt, e.getMessage());
+                
+                if (attempt < MAX_RECONNECT_ATTEMPTS) {
+                    try {
+                        TimeUnit.MILLISECONDS.sleep(RECONNECT_DELAY_MS * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("Reconnection interrupted", ie);
+                    }
+                }
+            }
+        }
+        
+        throw new RuntimeException("Failed to reconnect to ROSBridge after " + MAX_RECONNECT_ATTEMPTS + " attempts");
+    }
+
+    private boolean isConnectionActive() {
+        return connected && client != null && client.isOpen();
+    }
+
+    private void closeExistingConnection() {
+        if (client != null) {
+            try {
+                if (client.isOpen()) {
+                    client.close();
+                }
+            } catch (Exception e) {
+                log.debug("Error closing existing connection", e);
+            }
+            client = null;
+        }
+    }
+
+    private void createAndConnectClient(String wsUrl) throws Exception {
+        client = new WebSocketClient(new URI(wsUrl)) {
+            @Override
+            public void onOpen(ServerHandshake handshake) {
+                connected = true;
+                log.info("ROSBridge connected to {}", wsUrl);
+            }
+
+            @Override
+            public void onMessage(String message) {
+                // ROSBridge responses are not currently processed
+            }
+
+            @Override
+            public void onClose(int code, String reason, boolean remote) {
+                connected = false;
+                log.warn("ROSBridge connection closed: {} (code: {}, remote: {})", reason, code, remote);
+            }
+
+            @Override
+            public void onError(Exception ex) {
+                connected = false;
+                log.error("ROSBridge error", ex);
+            }
+        };
+        
+        boolean success = client.connectBlocking(5, TimeUnit.SECONDS);
+        if (!success) {
+            throw new RuntimeException("Connection timed out");
+        }
+    }
+
+    private void send(Map<String, Object> payload) {
+        if (client == null || !client.isOpen()) {
+            throw new RuntimeException("ROSBridge client is not connected");
+        }
+        
+        try {
+            String json = om.writeValueAsString(payload);
+            client.send(json);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to send message to ROSBridge", e);
+        }
+    }
+
+    private void advertise(String topic, String type) {
+        send(Map.of(
+                "op", "advertise",
+                "id", "adv-" + topic,
+                "topic", topic,
+                "type", type
+        ));
+    }
+
+    private void publish(String topic, Object msg) {
+        send(Map.of(
+                "op", "publish",
+                "id", "pub-" + UUID.randomUUID(),
+                "topic", topic,
+                "msg", msg
+        ));
+    }
+
+    private Map<String, Object> yawToQuaternion(double yaw) {
+        double cy = Math.cos(yaw * 0.5);
+        double sy = Math.sin(yaw * 0.5);
         return Map.of("x", 0.0, "y", 0.0, "z", sy, "w", cy);
     }
 }

@@ -1,6 +1,7 @@
 package com.samma.rcp.app.controller;
 
-import com.samma.rcp.app.domain.SimStatusDto;
+import com.samma.rcp.app.dto.SimStatusDto;
+import com.samma.rcp.app.dto.SimulationStartRequest;
 import com.samma.rcp.app.service.SimulationService;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,8 +16,8 @@ public class SimulationController {
     }
 
     @PostMapping("/start")
-    public SimStatusDto start() {
-        return service.start();
+    public SimStatusDto start(@RequestBody(required = false) SimulationStartRequest request) {
+        return service.start(request);
     }
 
     @PostMapping("/stop")
