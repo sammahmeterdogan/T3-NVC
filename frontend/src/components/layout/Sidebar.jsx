@@ -75,6 +75,13 @@ const menuItems = [
         color: 'text-cyan-400',
         activeColor: 'text-cyan-400',
     },
+    {
+        path: '/so101-simulator',
+        name: 'SO-ARM101 Sim',
+        icon: Cpu,
+        color: 'text-pink-400',
+        activeColor: 'text-pink-400',
+    },
 ]
 
 const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
@@ -206,11 +213,10 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                         {({ isActive }) => (
                             <>
                                 <item.icon
-                                    className={`w-5 h-5 ${
-                                        isActive
+                                    className={`w-5 h-5 ${isActive
                                             ? item.activeColor
                                             : 'group-hover:text-white'
-                                    }`}
+                                        }`}
                                 />
                                 {!isCollapsed && (
                                     <motion.span
@@ -242,9 +248,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setIsCollapsed(!isCollapsed)}
-                    className={`w-full flex items-center justify-center py-2 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors ${
-                        isCollapsed ? '' : 'gap-3'
-                    }`}
+                    className={`w-full flex items-center justify-center py-2 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors ${isCollapsed ? '' : 'gap-3'
+                        }`}
                 >
                     <motion.svg
                         animate={{ rotate: isCollapsed ? 180 : 0 }}

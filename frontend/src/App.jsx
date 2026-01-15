@@ -1,6 +1,6 @@
 // frontend/src/App.jsx
 import React, { Suspense, lazy } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import LoadingSpinner from './components/ui/LoadingSpinner'
 import Layout from './components/layout/Layout'
@@ -23,28 +23,46 @@ const PageLoader = () => (
     </div>
 )
 
+// Wrapper for suspense loading
+const SuspenseWrapper = ({ children }) => (
+    <Suspense fallback={<PageLoader />}>
+        {children}
+    </Suspense>
+)
+
+// Create router with future flags enabled
+const router = createBrowserRouter(
+    [
+        {
+            path: '/',
+            element: <Layout />,
+            children: [
+                { index: true, element: <Navigate to="/dashboard" replace /> },
+                { path: 'dashboard', element: <SuspenseWrapper><Dashboard /></SuspenseWrapper> },
+                { path: 'simulator', element: <SuspenseWrapper><Simulator /></SuspenseWrapper> },
+                { path: 'examples', element: <SuspenseWrapper><Examples /></SuspenseWrapper> },
+                { path: 'maps', element: <SuspenseWrapper><Maps /></SuspenseWrapper> },
+                { path: 'navigation', element: <SuspenseWrapper><Navigation /></SuspenseWrapper> },
+                { path: 'settings', element: <SuspenseWrapper><Settings /></SuspenseWrapper> },
+                { path: 'turtlesim', element: <SuspenseWrapper><Turtlesim /></SuspenseWrapper> },
+                { path: 'so-arm-101', element: <SuspenseWrapper><SoArm101 /></SuspenseWrapper> },
+                { path: 'so101-simulator', element: <SuspenseWrapper><SO101Simulator /></SuspenseWrapper> },
+                { path: '*', element: <SuspenseWrapper><NotFound /></SuspenseWrapper> },
+            ],
+        },
+    ],
+    {
+        future: {
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+        },
+    }
+)
+
 export default function App() {
     return (
-        <Router>
-            <AnimatePresence mode="wait">
-                <Suspense fallback={<PageLoader />}>
-                    <Routes>
-                        <Route path="/" element={<Layout />}>
-                            <Route index element={<Navigate to="/dashboard" replace />} />
-                            <Route path="dashboard" element={<Dashboard />} />
-                            <Route path="simulator" element={<Simulator />} />
-                            <Route path="examples" element={<Examples />} />
-                            <Route path="maps" element={<Maps />} />
-                            <Route path="navigation" element={<Navigation />} />
-                            <Route path="settings" element={<Settings />} />
-                            <Route path="turtlesim" element={<Turtlesim />} />
-                            <Route path="so-arm-101" element={<SoArm101 />} />
-                            <Route path="so101-simulator" element={<SO101Simulator />} />
-                            <Route path="*" element={<NotFound />} />
-                        </Route>
-                    </Routes>
-                </Suspense>
-            </AnimatePresence>
-        </Router>
+        <AnimatePresence mode="wait">
+            <RouterProvider router={router} />
+        </AnimatePresence>
     )
 }

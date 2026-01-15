@@ -3,7 +3,7 @@ import axios from 'axios'
 import { rosClient } from './rosClient'
 
 // Varsayılan olarak backend host portu 8082'ye (docker-compose varsayılanı) işaret et
-const API_BASE_URL = 'http://localhost:8082/api'
+const API_BASE_URL = '/api'
 
 // --- Axios instance ---
 export const api = axios.create({

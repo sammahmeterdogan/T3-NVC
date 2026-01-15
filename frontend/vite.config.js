@@ -29,12 +29,8 @@ export default defineConfig(({ mode }) => {
                     ws: true,
                     secure: false,
                 },
-                '/rosbridge': {
-                    target: 'ws://localhost:9091',
-                    changeOrigin: true,
-                    ws: true,
-                    secure: false,
-                },
+                // Rosbridge proxies REMOVED - Using direct connection to ports 9090/9091 to avoid Vite ECONNRESET issues.
+                // See rosClient.js and soarmRosClient.js for direct URL configuration.
             },
         },
         define: {

@@ -2,15 +2,16 @@ FROM osrf/ros:humble-desktop
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Simulator GUI dependencies + MoveIt
+# Install Simulator GUI dependencies + MoveIt + Rosbridge
 RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb x11vnc fluxbox \
     python3-websockify novnc \
-    git python3-pip \
+    git python3-pip net-tools \
     ros-humble-moveit \
     ros-humble-ros2-control \
     ros-humble-ros2-controllers \
     ros-humble-xacro \
+    ros-humble-rosbridge-server \
     && rm -rf /var/lib/apt/lists/*
 
 # Clone the SO-ARM Repo
@@ -38,6 +39,6 @@ COPY soarm-entrypoint.sh /usr/local/bin/soarm-entrypoint.sh
 COPY moveit_wrapper.py /usr/local/bin/moveit_wrapper.py
 RUN chmod +x /usr/local/bin/soarm-entrypoint.sh /usr/local/bin/moveit_wrapper.py
 
-EXPOSE 6081 5901
+EXPOSE 6081 5901 9090
 
 CMD ["/usr/local/bin/soarm-entrypoint.sh"]
