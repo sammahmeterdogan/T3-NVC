@@ -101,7 +101,7 @@ services:
     networks:
       - turtlebot-network
 
-  # SO-ARM MoveIt Simulator with noVNC
+  # SO-ARM MoveIt Simulator with noVNC + Rosbridge
   soarm-novnc:
     build:
       context: ./ros-stack
@@ -114,7 +114,10 @@ services:
       - GEOMETRY=1600x900x24
       - NOVNC_PORT=6081
     ports:
-      - "${SOARM_NOVNC_HOST_PORT:-6083}:6081"
+      - "6081:6081"
+      - "9090:9090"
+    volumes:
+      - ./ros-stack/moveit_wrapper.py:/usr/local/bin/moveit_wrapper.py
     networks:
       - turtlebot-network
 

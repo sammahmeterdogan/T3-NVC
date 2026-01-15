@@ -1,6 +1,6 @@
 import ROSLIB from 'roslib'
 
-const DEFAULT_URL = (import.meta.env && import.meta.env.VITE_ROSBRIDGE_URL) || '/rosbridge'
+const DEFAULT_URL = 'ws://localhost:9091'
 
 function toWsUrl(input) {
     const val = (input || DEFAULT_URL).trim()
@@ -8,7 +8,7 @@ function toWsUrl(input) {
         const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
         return `${proto}//${window.location.host}${val}`
     }
-    if (val.startsWith('http://'))  return 'ws://'  + val.slice(7)
+    if (val.startsWith('http://')) return 'ws://' + val.slice(7)
     if (val.startsWith('https://')) return 'wss://' + val.slice(8)
     return val // already ws:// or wss://
 }
@@ -47,7 +47,7 @@ function cleanupConnHandlers(target, handlers) {
         try {
             const offFn = target.off || target.removeListener
             offFn && offFn.call(target, evt, fn)
-        } catch {}
+        } catch { }
     }
 }
 
@@ -56,12 +56,12 @@ function connect(url) {
 
     const wsUrl = toWsUrl(url)
     console.log(`[ROS] Attempting to connect to ${wsUrl}`)
-    
+
     if (ros && ros.socket && ros.socket.readyState === 1) {
         console.log('[ROS] Already connected')
         return Promise.resolve(ros)
     }
-    
+
     if (connectPromise) {
         console.log('[ROS] Connection in progress, reusing promise')
         return connectPromise
@@ -104,9 +104,9 @@ function connect(url) {
             const maxDelay = 8000
             const delay = Math.min(baseDelay, maxDelay) + Math.random() * 200
             console.log(`[ROS] RETRY ${reconnectAttempts}/${maxReconnectAttempts} in ${Math.round(delay)}ms`)
-            reconnectTimer = setTimeout(() => { 
+            reconnectTimer = setTimeout(() => {
                 if (!destroyed) {
-                    connect(wsUrl).catch(() => {}) 
+                    connect(wsUrl).catch(() => { })
                 }
             }, delay)
         }
@@ -124,9 +124,9 @@ function connect(url) {
 
 function disconnect() {
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
-    topics.forEach((t) => { try { t.unsubscribe?.() } catch {}; try { t.unadvertise?.() } catch {} })
+    topics.forEach((t) => { try { t.unsubscribe?.() } catch { }; try { t.unadvertise?.() } catch { } })
     topics.clear()
-    try { ros?.close() } catch {}
+    try { ros?.close() } catch { }
     ros = null
     setState('DISCONNECTED')
 }
@@ -194,8 +194,8 @@ function subscribeTopic(name, messageType, cb, opts = {}) {
 function unsubscribeTopic(name) {
     for (const [key, t] of Array.from(topics.entries())) {
         if (key.startsWith(`sub:${name}:`) || key.startsWith(`pub:${name}:`)) {
-            try { t.unsubscribe?.() } catch {}
-            try { t.unadvertise?.() } catch {}
+            try { t.unsubscribe?.() } catch { }
+            try { t.unadvertise?.() } catch { }
             topics.delete(key)
         }
     }
@@ -210,7 +210,7 @@ function publishTopic(name, messageType, message) {
     let t = topics.get(key)
     if (!t) {
         t = new ROSLIB.Topic({ ros, name, messageType })
-        try { t.advertise?.() } catch {}
+        try { t.advertise?.() } catch { }
         topics.set(key, t)
     }
     t.publish(new ROSLIB.Message(message))
@@ -238,10 +238,10 @@ function publishGoalPose(x, y, theta) {
 }
 
 function stopRobot() { publishCmdVel(0, 0) }
-function moveForward(speed = 0.2)  { publishCmdVel(speed, 0) }
+function moveForward(speed = 0.2) { publishCmdVel(speed, 0) }
 function moveBackward(speed = 0.2) { publishCmdVel(-speed, 0) }
-function turnLeft(speed = 0.5)     { publishCmdVel(0, speed) }
-function turnRight(speed = 0.5)    { publishCmdVel(0, -speed) }
+function turnLeft(speed = 0.5) { publishCmdVel(0, speed) }
+function turnRight(speed = 0.5) { publishCmdVel(0, -speed) }
 
 const api = {
     connect,

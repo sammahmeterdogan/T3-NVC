@@ -46,12 +46,17 @@ if [ -f "/root/ws/install/setup.bash" ]; then
     source /root/ws/install/setup.bash
 fi
 
-# 4. Launch MoveIt Demo (in background)
+# 4. Launch Rosbridge WebSocket Server (Port 9090 for Frontend)
+echo "Starting Rosbridge WebSocket Server on port 9090..."
+ros2 launch rosbridge_server rosbridge_websocket_launch.xml port:=9090 &
+sleep 2
+
+# 5. Launch MoveIt Demo (in background)
 # Using 'ros2 launch' as identified in repo docs
 echo "Launching SO-ARM MoveIt Demo..."
 ros2 launch so_arm_moveit_config demo.launch.py &
 
-# 5. Run MoveIt Wrapper (Foreground or Background? Background to keep container alive via tail)
+# 6. Run MoveIt Wrapper (Foreground or Background? Background to keep container alive via tail)
 echo "Starting MoveIt Wrapper Node..."
 python3 /usr/local/bin/moveit_wrapper.py &
 
