@@ -6,15 +6,16 @@ import LoadingSpinner from './components/ui/LoadingSpinner'
 import Layout from './components/layout/Layout'
 
 // Lazy pages
-const Dashboard  = lazy(() => import('./pages/Dashboard'))
-const Simulator  = lazy(() => import('./pages/Simulator'))
-const Examples   = lazy(() => import('./pages/Examples'))
-const Maps       = lazy(() => import('./pages/Maps'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Simulator = lazy(() => import('./pages/Simulator'))
+const Examples = lazy(() => import('./pages/Examples'))
+const Maps = lazy(() => import('./pages/Maps'))
 const Navigation = lazy(() => import('./pages/Navigation'))
-const Settings   = lazy(() => import('./pages/Settings'))
-const Turtlesim  = lazy(() => import('./pages/Turtlesim'))
-const SoArm101   = lazy(() => import('./pages/SoArm101'))
-const NotFound   = lazy(() => import('./pages/NotFound'))
+const Settings = lazy(() => import('./pages/Settings'))
+const Turtlesim = lazy(() => import('./pages/Turtlesim'))
+const SoArm101 = lazy(() => import('./pages/SoArm101'))
+const SO101Simulator = lazy(() => import('./pages/SO101Simulator'))
+const NotFound = lazy(() => import('./pages/NotFound'))
 
 const PageLoader = () => (
     <div className="flex items-center justify-center min-h-screen bg-gray-950">
@@ -32,13 +33,14 @@ export default function App() {
                             <Route index element={<Navigate to="/dashboard" replace />} />
                             <Route path="dashboard" element={<Dashboard />} />
                             <Route path="simulator" element={<Simulator />} />
-                            <Route path="examples"   element={<Examples />} />
-                            <Route path="maps"       element={<Maps />} />
+                            <Route path="examples" element={<Examples />} />
+                            <Route path="maps" element={<Maps />} />
                             <Route path="navigation" element={<Navigation />} />
-                            <Route path="settings"   element={<Settings />} />
-                            <Route path="turtlesim"  element={<Turtlesim />} />
+                            <Route path="settings" element={<Settings />} />
+                            <Route path="turtlesim" element={<Turtlesim />} />
                             <Route path="so-arm-101" element={<SoArm101 />} />
-                            <Route path="*"         element={<NotFound />} />
+                            <Route path="so101-simulator" element={<SO101Simulator />} />
+                            <Route path="*" element={<NotFound />} />
                         </Route>
                     </Routes>
                 </Suspense>

@@ -5,6 +5,7 @@ import { OrbitControls, Grid, ContactShadows } from '@react-three/drei';
 import URDFLoader from 'urdf-loader';
 import { LoadingManager, Color } from 'three';
 import { degToRad } from 'three/src/math/MathUtils';
+import IKTargetSphere from './IKTargetSphere';
 
 /**
  * URDF JOINT MAPPING - "Rosetta Stone"
@@ -120,7 +121,13 @@ const RobotModel = ({ joints }) => {
     return <primitive object={robot} rotation={[-Math.PI / 2, 0, 0]} />;
 };
 
-const LiveRobotScene = ({ joints }) => {
+const LiveRobotScene = ({
+    joints,
+    ikMode = false,
+    ikTarget = [0.15, 0.0, 0.10],
+    onIKTargetDrag,
+    ikReachable = true
+}) => {
     return (
         <div className="h-full w-full bg-[#111111]">
             <Canvas shadows camera={{ position: [1, 1, 1], fov: 45 }}>
@@ -153,6 +160,16 @@ const LiveRobotScene = ({ joints }) => {
 
                 {/* Robot Model */}
                 <RobotModel joints={joints} />
+
+                {/* IK Target Sphere (conditional) */}
+                {ikMode && onIKTargetDrag && (
+                    <IKTargetSphere
+                        position={ikTarget}
+                        onDrag={onIKTargetDrag}
+                        enabled={ikMode}
+                        isReachable={ikReachable}
+                    />
+                )}
             </Canvas>
         </div>
     );

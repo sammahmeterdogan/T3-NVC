@@ -16,15 +16,28 @@ const RvizPanel = () => {
     })
 
     useEffect(() => {
+        // Priority 1: API Response
         if (rvizData?.url) {
             setRvizUrl(rvizData.url)
             setIsLoading(false)
-        } else if (isFetchingUrl) {
+        }
+        // Priority 2: Env Variable (Docker/Local Dev Fallback)
+        else if (import.meta.env.VITE_NOVNC_URL) {
+            setRvizUrl(import.meta.env.VITE_NOVNC_URL)
+            setIsLoading(false)
+        }
+        else if (isFetchingUrl) {
             setIsLoading(true)
             setError(null)
         } else if (rvizData && !rvizData.url) {
-            setError('RViz URL not available')
-            setIsLoading(false)
+            // Check Env again in case API failed but we have a fallback
+            if (import.meta.env.VITE_NOVNC_URL) {
+                setRvizUrl(import.meta.env.VITE_NOVNC_URL)
+                setIsLoading(false)
+            } else {
+                setError('RViz URL not available')
+                setIsLoading(false)
+            }
         }
     }, [rvizData, isFetchingUrl])
 
