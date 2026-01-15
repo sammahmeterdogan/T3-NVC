@@ -101,6 +101,23 @@ services:
     networks:
       - turtlebot-network
 
+  # SO-ARM MoveIt Simulator with noVNC
+  soarm-novnc:
+    build:
+      context: ./ros-stack
+      dockerfile: soarm-novnc.Dockerfile
+    container_name: soarm-moveit-novnc
+    restart: unless-stopped
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
+      - DISPLAY=:1
+      - GEOMETRY=1600x900x24
+      - NOVNC_PORT=6081
+    ports:
+      - "${SOARM_NOVNC_HOST_PORT:-6083}:6081"
+    networks:
+      - turtlebot-network
+
 volumes:
   postgres_data:
 

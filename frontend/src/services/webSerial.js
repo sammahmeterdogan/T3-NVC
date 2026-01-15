@@ -222,6 +222,24 @@ export const webSerialService = {
     },
 
     /**
+     * Enable/disable torque for ALL servos (Broadcast)
+     * @param {boolean} enable - true = Torque ON, false = Torque OFF (Free)
+     */
+    async torqueEnable(enable) {
+        // Use Broadcast ID (0xFE) to set torque for all servos at once
+        const params = [
+            SCS.ADDR_TORQUE_ENABLE,
+            enable ? 1 : 0
+        ];
+
+        const packet = this.buildPacket(SCS.BROADCAST_ID, SCS.INST_WRITE, params);
+        await this.sendBytes(packet);
+
+        console.log(`[STS3215] TORQUE_USB_WRITE id=BROADCAST addr=0x28 value=${enable ? 1 : 0} bytes=${Array.from(packet).map(b => b.toString(16).toUpperCase()).join(' ')}`);
+        console.log(`[STS3215] GLOBAL_TORQUE: ${enable ? 'ENABLED (Hold)' : 'DISABLED (Free Move)'}`);
+    },
+
+    /**
      * Ping a servo to check if connected
      */
     async ping(id) {

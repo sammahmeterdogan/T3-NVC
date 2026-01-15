@@ -6,6 +6,14 @@ import json
 import serial
 import time
 
+# Import IK solver from assignment8-so101 integration
+try:
+    from so101_inverse_kinematics import get_inverse_kinematics, convert_to_ui_format, check_workspace
+except ImportError:
+    get_inverse_kinematics = None
+    convert_to_ui_format = None
+    check_workspace = None
+
 class SoArmDriver(Node):
     def __init__(self):
         super().__init__('so_arm_driver')
@@ -30,6 +38,28 @@ class SoArmDriver(Node):
         )
         self.get_logger().info('So Arm Driver initialized and waiting for commands...')
 
+    def convert_ui_to_assignment_format(self, ui_joints):
+        """Convert UI joint dict to assignment format."""
+        return {
+            'shoulder_pan': ui_joints.get('base', 0),
+            'shoulder_lift': ui_joints.get('shoulder', 0),
+            'elbow_flex': ui_joints.get('elbow', 0),
+            'wrist_flex': ui_joints.get('wristPitch', 0),
+            'wrist_roll': ui_joints.get('wristRoll', 0),
+            'gripper': ui_joints.get('gripper', 50)
+        }
+    
+    def convert_assignment_to_list(self, assignment_joints):
+        """Convert assignment joint dict to ordered list for serial."""
+        return [
+            assignment_joints.get('shoulder_pan', 0),
+            assignment_joints.get('shoulder_lift', 0),
+            assignment_joints.get('elbow_flex', 0),
+            assignment_joints.get('wrist_flex', 0),
+            assignment_joints.get('wrist_roll', 0),
+            assignment_joints.get('gripper', 50)
+        ]
+
     def init_serial_connection(self):
         """Attempts to establish serial connection."""
         try:
@@ -48,18 +78,68 @@ class SoArmDriver(Node):
 
             # 2. Handle JOINTS mode
             if mode == 'JOINTS':
-                # Expected data: list of integers/floats [j1, j2, j3, j4, j5, j6]
+                # Expected data: list [j1, j2, j3, j4, j5, j6] OR dict with UI joint names
                 if isinstance(data, list):
-                    # Convert list to CSV string terminated by newline
-                    # e.g., "90,45,120,0,0,0\n"
+                    # Direct list format
                     command_str = ",".join(map(str, data)) + "\n"
+                    self.send_serial(command_str)
+                elif isinstance(data, dict):
+                    # Dict format from UI - convert to list
+                    assignment_format = self.convert_ui_to_assignment_format(data)
+                    joint_list = self.convert_assignment_to_list(assignment_format)
+                    command_str = ",".join(map(str, joint_list)) + "\n"
                     self.send_serial(command_str)
                 else:
                     self.get_logger().error(f"Invalid data format for JOINTS: {data}")
 
             # 3. Handle IK mode (Inverse Kinematics)
             elif mode == 'IK':
-                self.get_logger().warn("IK Solver not implemented on Driver yet")
+                if get_inverse_kinematics is None:
+                    self.get_logger().error("IK Solver module not found - check so101_inverse_kinematics.py")
+                    return
+                
+                # Expected data: dict with x, y, z (in meters), optional pitch/roll/yaw
+                if not isinstance(data, dict):
+                    self.get_logger().error(f"Invalid data format for IK: {data}")
+                    return
+                
+                # Extract position
+                x = data.get('x', 0.0)
+                y = data.get('y', 0.0)
+                z = data.get('z', 0.0)
+                target_position = [x, y, z]
+                
+                # Optional: extract orientation (not implemented in simplified IK)
+                # pitch = data.get('pitch', 0)
+                # roll = data.get('roll', 0)
+                # yaw = data.get('yaw', 0)
+                
+                # Optional: gripper value
+                gripper = data.get('gripper', None)
+                
+                self.get_logger().info(f"[IK] Computing solution for position: {target_position}")
+                
+                # Check workspace first
+                if check_workspace and not check_workspace(target_position):
+                    self.get_logger().warn(f"[IK] Position {target_position} is outside workspace")
+                    return
+                
+                # Compute IK solution
+                joint_config = get_inverse_kinematics(target_position, gripper_value=gripper)
+                
+                if joint_config is None:
+                    self.get_logger().error(f"[IK] No solution found for position {target_position}")
+                    return
+                
+                # Log solution
+                self.get_logger().info(f"[IK] Solution found:")
+                for joint_name, angle in joint_config.items():
+                    self.get_logger().info(f"  {joint_name:15s}: {angle:7.2f}°")
+                
+                # Convert to list and send
+                joint_list = self.convert_assignment_to_list(joint_config)
+                command_str = ",".join(map(str, joint_list)) + "\n"
+                self.send_serial(command_str)
                 
             else:
                 self.get_logger().warn(f"Unknown mode received: {mode}")

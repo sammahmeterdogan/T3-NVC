@@ -1,0 +1,113 @@
+﻿============================================================
+SO-101 Inverse Kinematics Solver - Unit Tests
+============================================================
+
+=== Test: Workspace Validation ===
+python : Traceback (m
+ost recent call last)
+:
+At line:1 char:1
++ python test_inverse
+_kinematics.py 2>&1 |
+ Out-File -FilePath t
+est_outp ...
++ ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (Traceba   
+ ck (most recent     
+call last)::Stri    n
+g) [], RemoteEx    ce
+ption
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+  File "C:\Users\ASUS
+\Desktop\Son\T3-NVC\r
+os-stack\drivers\test
+_inverse_kinematics.p
+y", line 211, in run_
+all_tests
+    test_fn()
+  File "C:\Users\ASUS
+\Desktop\Son\T3-NVC\r
+os-stack\drivers\test
+_inverse_kinematics.p
+y", line 29, in test_
+workspace_validation
+    print("\u2713 Mod
+erate reach position 
+validated")
+  File "C:\Program Fi
+les\WindowsApps\Pytho
+nSoftwareFoundation.P
+ython.3.11_3.11.2544.
+0_x64__qbz5n2kfra8p0\
+Lib\encodings\cp1254.
+py", line 19, in enco
+de
+    return codecs.cha
+rmap_encode(input,sel
+f.errors,encoding_tab
+le)[0]
+           ^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^
+UnicodeEncodeError: '
+charmap' codec can't 
+encode character '\u2
+713' in position 0: c
+haracter maps to <und
+efined>
+
+During handling of th
+e above exception, an
+other exception occur
+red:
+
+Traceback (most recen
+t call last):
+  File "C:\Users\ASUS
+\Desktop\Son\T3-NVC\r
+os-stack\drivers\test
+_inverse_kinematics.p
+y", line 230, in <mod
+ule>
+    success = run_all
+_tests()
+              ^^^^^^^
+^^^^^^^^
+  File "C:\Users\ASUS
+\Desktop\Son\T3-NVC\r
+os-stack\drivers\test
+_inverse_kinematics.p
+y", line 218, in run_
+all_tests
+    print(f"\n\u2717 
+ERROR: {test_fn.__nam
+e__}")
+  File "C:\Program Fi
+les\WindowsApps\Pytho
+nSoftwareFoundation.P
+ython.3.11_3.11.2544.
+0_x64__qbz5n2kfra8p0\
+Lib\encodings\cp1254.
+py", line 19, in enco
+de
+    return codecs.cha
+rmap_encode(input,sel
+f.errors,encoding_tab
+le)[0]
+           ^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+^^^
+UnicodeEncodeError: '
+charmap' codec can't 
+encode character '\u2
+717' in position 2: c
+haracter maps to <und
+efined>
